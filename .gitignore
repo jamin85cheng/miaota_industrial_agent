@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 数据文件
+data/raw/*.csv
+data/processed/*.csv
+data/*.db
+data/vector_db/
+*.sqlite
+
+# 日志
+logs/
+*.log
+
+# 模型文件
+models/saved/*.pkl
+models/saved/*.h5
+models/saved/*.pt
+
+# 配置文件 (敏感信息)
+config/.env
+*.local.yaml
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 测试覆盖率
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# 文档构建
+docs/_build/
+
+# 操作系统
+.DS_Store
+Thumbs.db
