@@ -1,0 +1,233 @@
+{
+  "version": "1.0",
+  "description": "工业三废处理规则库 - 默认规则集",
+  "rules": [
+    {
+      "rule_id": "RULE_DO_LOW_001",
+      "name": "曝气池缺氧异常",
+      "description": "溶解氧持续低于 2.0 mg/L 达 10 分钟，表明曝气不足或进水负荷过高",
+      "enabled": true,
+      "condition": {
+        "type": "duration",
+        "metric": "TAG_DO_001",
+        "operator": "<",
+        "threshold": 2.0,
+        "duration_minutes": 10
+      },
+      "label": "缺氧异常",
+      "severity": "high",
+      "category": "water_treatment",
+      "suggested_actions": [
+        "检查鼓风机运行状态",
+        "增加曝气量",
+        "检查进水 COD 是否超标",
+        "投加碳源恢复污泥活性"
+      ],
+      "escalation": {
+        "auto_notify": true,
+        "notify_after_minutes": 15,
+        "contacts": ["operator_on_duty", "process_engineer"]
+      }
+    },
+    {
+      "rule_id": "RULE_PH_LOW_002",
+      "name": "pH 过低报警",
+      "description": "pH 值低于 6.0，可能影响微生物活性",
+      "enabled": true,
+      "condition": {
+        "type": "threshold",
+        "metric": "TAG_PH_001",
+        "operator": "<",
+        "threshold": 6.0
+      },
+      "label": "pH 异常 - 偏低",
+      "severity": "medium",
+      "category": "water_treatment",
+      "suggested_actions": [
+        "检查进水 pH 值",
+        "投加 NaOH 调节 pH 至 6.5-7.5",
+        "排查上游是否有酸性废水排放"
+      ]
+    },
+    {
+      "rule_id": "RULE_PH_HIGH_003",
+      "name": "pH 过高报警",
+      "description": "pH 值高于 9.0，可能抑制微生物生长",
+      "enabled": true,
+      "condition": {
+        "type": "threshold",
+        "metric": "TAG_PH_001",
+        "operator": ">",
+        "threshold": 9.0
+      },
+      "label": "pH 异常 - 偏高",
+      "severity": "medium",
+      "category": "water_treatment",
+      "suggested_actions": [
+        "检查进水 pH 值",
+        "投加酸液调节 pH",
+        "排查上游是否有碱性废水排放"
+      ]
+    },
+    {
+      "rule_id": "RULE_COD_HIGH_004",
+      "name": "COD 超标预警",
+      "description": "COD 浓度超过 100 mg/L，出水可能不达标",
+      "enabled": true,
+      "condition": {
+        "type": "threshold",
+        "metric": "TAG_COD_001",
+        "operator": ">",
+        "threshold": 100
+      },
+      "label": "COD 超标",
+      "severity": "critical",
+      "category": "water_treatment",
+      "suggested_actions": [
+        "立即启动应急调节池",
+        "减少进水量",
+        "增加曝气和碳源投加",
+        "通知环保部门"
+      ],
+      "escalation": {
+        "auto_notify": true,
+        "notify_immediately": true,
+        "contacts": ["plant_manager", "environmental_officer"]
+      }
+    },
+    {
+      "rule_id": "RULE_FLOW_PUMP_MISMATCH_005",
+      "name": "泵运行与流量不匹配",
+      "description": "泵显示运行但流量为 0，可能存在堵塞或空转",
+      "enabled": true,
+      "condition": {
+        "type": "logic",
+        "conditions": [
+          {"metric": "TAG_Pump_001_Status", "operator": "==", "value": true},
+          {"metric": "TAG_Flow_001", "operator": "<", "threshold": 10}
+        ],
+        "logic": "AND",
+        "duration_minutes": 2
+      },
+      "label": "设备异常 - 泵空转",
+      "severity": "high",
+      "category": "equipment",
+      "suggested_actions": [
+        "立即停泵检查",
+        "检查进口阀门是否打开",
+        "检查管道是否堵塞",
+        "检查泵叶轮是否损坏"
+      ]
+    },
+    {
+      "rule_id": "RULE_PRESSURE_HIGH_006",
+      "name": "管道压力过高",
+      "description": "管道压力超过 0.8 MPa，存在爆管风险",
+      "enabled": true,
+      "condition": {
+        "type": "threshold",
+        "metric": "TAG_Pressure_001",
+        "operator": ">",
+        "threshold": 0.8
+      },
+      "label": "压力异常 - 过高",
+      "severity": "critical",
+      "category": "equipment",
+      "suggested_actions": [
+        "立即开启泄压阀",
+        "检查下游阀门开度",
+        "排查管道堵塞点",
+        "通知维修人员"
+      ]
+    },
+    {
+      "rule_id": "RULE_TEMPERATURE_SPIKE_007",
+      "name": "温度突变检测",
+      "description": "5 分钟内温度变化超过 10°C，可能存在异常",
+      "enabled": true,
+      "condition": {
+        "type": "rate_of_change",
+        "metric": "TAG_Temp_001",
+        "change_threshold": 10,
+        "window_minutes": 5
+      },
+      "label": "温度突变",
+      "severity": "medium",
+      "category": "process",
+      "suggested_actions": [
+        "检查加热/冷却系统",
+        "确认是否为工艺切换导致",
+        "检查温度传感器是否故障"
+      ]
+    },
+    {
+      "rule_id": "RULE_DUST_HIGH_008",
+      "name": "粉尘浓度超标",
+      "description": "PM10 浓度超过 150 μg/m³，除尘系统可能失效",
+      "enabled": true,
+      "condition": {
+        "type": "threshold",
+        "metric": "TAG_PM10_001",
+        "operator": ">",
+        "threshold": 150
+      },
+      "label": "粉尘超标",
+      "severity": "high",
+      "category": "waste_gas",
+      "suggested_actions": [
+        "检查布袋除尘器压差",
+        "检查脉冲清灰系统",
+        "检查风机风量",
+        "必要时停机更换滤袋"
+      ]
+    },
+    {
+      "rule_id": "RULE_GAS_SO2_HIGH_009",
+      "name": "SO₂排放超标",
+      "description": "二氧化硫浓度超过 100 mg/m³，脱硫系统异常",
+      "enabled": true,
+      "condition": {
+        "type": "threshold",
+        "metric": "TAG_SO2_001",
+        "operator": ">",
+        "threshold": 100
+      },
+      "label": "SO₂超标",
+      "severity": "critical",
+      "category": "waste_gas",
+      "suggested_actions": [
+        "检查脱硫塔循环泵",
+        "检查石灰石浆液浓度",
+        "增加脱硫剂投加量",
+        "通知环保部门"
+      ]
+    },
+    {
+      "rule_id": "RULE_CORRELATION_DO_AIR_010",
+      "name": "DO 与曝气量相关性异常",
+      "description": "曝气量增加但 DO 不升反降，可能存在严重问题",
+      "enabled": true,
+      "condition": {
+        "type": "correlation_violation",
+        "metrics": ["TAG_AirFlow_001", "TAG_DO_001"],
+        "expected_correlation": "positive",
+        "violation_duration_minutes": 15
+      },
+      "label": "工艺异常 - 相关性违背",
+      "severity": "high",
+      "category": "process",
+      "suggested_actions": [
+        "检查曝气头是否堵塞",
+        "检查进水是否有毒性物质",
+        "检查污泥浓度是否过高",
+        "取样化验水质"
+      ]
+    }
+  ],
+  "global_settings": {
+    "default_severity": "medium",
+    "evaluation_interval_seconds": 10,
+    "alert_suppression_window_minutes": 15,
+    "require_acknowledgment": true
+  }
+}
