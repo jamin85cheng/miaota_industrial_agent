@@ -1,258 +1,200 @@
 # 快速启动指南
 
-## 🚀 5 分钟快速开始
+**版本**: v1.0.0-beta2 (MiroFish)
 
-### 1. 安装依赖
+---
+
+## 🚀 5分钟快速启动
+
+### 1. 克隆与安装 (2分钟)
 
 ```bash
+# 克隆代码
+git clone https://github.com/jamin85cheng/miaota_industrial_agent.git
 cd miaota_industrial_agent
 
 # 创建虚拟环境
-python -m venv venv
-
-# 激活虚拟环境
-# Linux/Mac:
+python3.11 -m venv venv
 source venv/bin/activate
-# Windows:
-.\venv\Scripts\activate
 
-# 安装核心依赖 (最小化安装)
-pip install pandas numpy loguru pyyaml openpyxl
-
-# 完整安装 (包含所有功能)
+# 安装依赖
 pip install -r requirements.txt
 ```
 
-### 2. 配置系统
-
-编辑 `config/settings.yaml`，修改以下关键配置：
-
-```yaml
-# PLC 连接配置
-plc:
-  s7:
-    host: "192.168.1.100"  # 改为你的 PLC IP
-    port: 102
-    rack: 0
-    slot: 1
-  
-  scan_interval: 10  # 采集频率 (秒)
-
-# 数据库配置 (使用默认 SQLite 即可)
-database:
-  sqlite:
-    enabled: true
-    path: "data/metadata.db"
-```
-
-### 3. 准备点位映射表
-
-首次运行时会自动生成模板 `config/tag_mapping.xlsx`，打开并填写你的 PLC 点位信息：
-
-| 点位 ID | PLC 地址 | 设备名称 | 业务含义 | 数据类型 | 单位 | 正常阈值 |
-|--------|---------|---------|---------|---------|------|---------|
-| TAG_DO_001 | MD100 | 1#曝气池 | 溶解氧浓度 | FLOAT | mg/L | 2.0-8.0 |
-| TAG_PH_001 | MD104 | 1#曝气池 | pH 值 | FLOAT | | 6.5-8.5 |
-
-### 4. 运行测试
-
-#### 测试 1: 点位映射
+### 2. 初始化配置 (1分钟)
 
 ```bash
-python src/core/tag_mapping.py
+# 初始化数据库
+python migrations/migration_manager.py init
+python migrations/migration_manager.py migrate
+
+# 配置文件已自动生成
+# 查看配置: cat config/settings.yaml
 ```
 
-预期输出：
-```
-TagMapper 初始化完成，加载 3 个点位
-语义化数据:
-  1#曝气池_溶解氧浓度：3.5 mg/L
-  1#曝气池_pH 值：7.2
-```
-
-#### 测试 2: 规则引擎
+### 3. 启动服务 (1分钟)
 
 ```bash
-python src/rules/rule_engine.py
+# 启动API服务
+python -m src.api.main
+
+# 服务已启动!
+# API文档: http://localhost:8000/docs
 ```
 
-预期输出：
-```
-RuleEngine 初始化完成，加载 10 条规则
-触发了 2 条规则:
-⚠️  [HIGH] 曝气池缺氧异常
-   标签：缺氧异常
-   建议动作:
-     - 检查鼓风机运行状态
-     - 增加曝气量
-```
-
-#### 测试 3: 数据采集 (模拟模式)
+### 4. 首次体验V2智能诊断 (1分钟)
 
 ```bash
-python src/data/collector.py
+# 登录获取Token
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
+
+# 保存返回的access_token
+TOKEN="your_access_token"
+
+# 体验V2多智能体诊断
+curl -X POST http://localhost:8000/v2/diagnosis/analyze \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symptoms": "曝气池溶解氧持续偏低，风机噪音异常",
+    "sensor_data": {"do": 1.5, "vibration": 8.5, "current": 25.3},
+    "use_multi_agent": true,
+    "use_graph_rag": true
+  }'
 ```
 
-预期输出（模拟数据）：
-```
-PLCCollector 初始化完成：s7@192.168.1.100:102
-模拟模式：连接到虚拟 PLC
-收到数据 @ 2026-03-24T10:30:00:
-  TAG_DO_001: 3.52
-  TAG_PH_001: 7.21
-  TAG_COD_001: 85.3
-```
-
-### 5. 启动完整系统
-
-创建一个简单的启动脚本 `start_system.py`：
-
-```python
-from src.core import TagMapper, RuleEngine
-from src.data import PLCCollector
-import time
-
-# 1. 初始化点位映射
-mapper = TagMapper('config/tag_mapping.xlsx')
-
-# 2. 初始化规则引擎
-engine = RuleEngine('config/rules.json')
-
-# 3. 初始化数据采集
-plc_config = {
-    'type': 's7',
-    'host': '192.168.1.100',
-    'port': 102,
-    'scan_interval': 10
+**预期输出**:
+```json
+{
+  "diagnosis_id": "MAD_ABC123DEF456",
+  "status": "completed",
+  "message": "多智能体诊断完成",
+  "result": {
+    "final_conclusion": "曝气盘部分堵塞，导致曝气效率下降40%",
+    "confidence": 0.85,
+    "consensus_level": 0.8,
+    "expert_opinions": [...],
+    "recommended_actions": [...],
+    "spare_parts": [...]
+  }
 }
-collector = PLCCollector(plc_config)
-
-# 4. 定义数据处理回调
-def on_data_received(data):
-    print(f"\n=== {data['timestamp']} ===")
-    
-    # 转换为 DataFrame
-    import pandas as pd
-    df = pd.DataFrame([data['values']])
-    
-    # 执行规则评估
-    alerts = engine.evaluate(df)
-    
-    if alerts:
-        print(f"⚠️  触发 {len(alerts)} 条告警:")
-        for alert in alerts:
-            print(f"  [{alert['severity'].upper()}] {alert['name']}")
-            print(f"     建议：{', '.join(alert['suggested_actions'][:2])}")
-    else:
-        print("✓ 系统运行正常")
-
-# 5. 注册回调并启动
-collector.register_callback(on_data_received)
-collector.start_collection(mapper.tag_dict)
-
-print("系统已启动，按 Ctrl+C 停止...")
-try:
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    print("\n系统停止中...")
-    collector.stop_collection()
-    collector.disconnect()
-```
-
-运行：
-```bash
-python start_system.py
 ```
 
 ---
 
-## 📦 Docker 部署 (生产环境)
-
-### 1. 构建镜像
+## 🐳 Docker快速启动
 
 ```bash
-docker-compose build
-```
-
-### 2. 启动服务
-
-```bash
+# 一键启动全部服务
 docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f api
+
+# 访问API
+curl http://localhost:8000/health
 ```
 
-### 3. 查看日志
+---
+
+## 🎯 快速体验V2特性
+
+### 1. 查看专家列表
 
 ```bash
-docker-compose logs -f
+curl http://localhost:8000/v2/diagnosis/experts \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
-### 4. 访问监控大屏
+### 2. 知识图谱查询
 
-浏览器打开：`http://localhost:8501`
-
----
-
-## 🔧 常见问题
-
-### Q1: 无法连接 PLC
-**A:** 检查以下几点：
-1. PLC IP 地址是否正确
-2. 网络是否连通 (`ping <PLC_IP>`)
-3. 防火墙是否开放端口 (S7: 102, Modbus: 502)
-4. 如果是 S7-1200/1500，确认已启用"允许来自远程对象的 PUT/GET 通信"
-
-### Q2: 依赖安装失败
-**A:** 尝试分步安装：
 ```bash
-# 先安装基础科学计算库
-pip install numpy pandas scipy
-
-# 再安装机器学习库
-pip install scikit-learn
-
-# 最后安装其他依赖
-pip install loguru pyyaml openpyxl
+curl -X POST http://localhost:8000/v2/diagnosis/knowledge/query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "轴承过热的原因"}' | jq
 ```
 
-### Q3: 规则不触发
-**A:** 检查：
-1. 规则是否启用 (`enabled: true`)
-2. 点位 ID 是否与数据中的列名匹配
-3. 阈值设置是否合理
-4. 查看日志文件 `logs/app.log` 获取详细信息
+### 3. 查看CAMEL社会状态
 
-### Q4: 内存占用过高
-**A:** 调整配置：
-```yaml
-# 减少历史数据缓存
-rule_engine:
-  buffer_size_minutes: 30  # 从 60 改为 30
+```bash
+curl http://localhost:8000/v2/diagnosis/society/status \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
 
-# 减少采集频率
-plc:
-  scan_interval: 30  # 从 10 改为 30 秒
+### 4. 浏览知识图谱
+
+```bash
+# 获取知识图谱
+curl http://localhost:8000/v2/diagnosis/knowledge/graph \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# 获取特定设备子图
+curl "http://localhost:8000/v2/diagnosis/knowledge/graph?entity_id=DEV_001&depth=2" \
+  -H "Authorization: Bearer $TOKEN" | jq
+```
+
+### 5. 异步CAMEL诊断
+
+```bash
+# 提交异步任务
+curl -X POST http://localhost:8000/v2/diagnosis/analyze \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symptoms": "复杂故障分析...",
+    "use_camel": true,
+    "priority": "high"
+  }'
+
+# 返回: {"task_id": "TASK_XXX", "status": "processing"}
+
+# 查询任务状态
+curl http://localhost:8000/v2/diagnosis/task/TASK_XXX \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 ---
 
-## 📖 下一步
+## 📊 监控大屏
 
-1. **完善点位映射**: 填写所有需要监控的 PLC 点位
-2. **定制规则库**: 根据你的工艺特点修改 `config/rules.json`
-3. **接入真实 PLC**: 修改配置，连接到实际设备
-4. **构建知识库**: 在 `data/knowledge_base/` 添加故障案例和操作规程
-5. **部署大屏**: 使用 Streamlit 或 ECharts 开发监控界面
+访问监控大屏查看实时数据：
 
----
+```
+http://localhost:8000/static/index.html
+```
 
-## 🆘 获取帮助
-
-- 查看完整文档：`docs/` 目录
-- 示例代码：`notebooks/` 目录
-- 问题反馈：提交 GitHub Issue
-- 技术支持：联系项目维护者
+大屏包含：
+- 实时趋势图
+- 设备状态分布
+- 告警统计
+- V2诊断历史（新增）
 
 ---
 
-**祝你使用愉快！** 🦞
+## 🔧 下一步
+
+- [阅读完整文档](user_manual.md)
+- [查看API参考](api_reference.md)
+- [了解部署选项](deployment.md)
+- [参与开发](development.md)
+
+---
+
+## 🙏 致谢
+
+快速上手基于以下开源项目：
+
+- [FastAPI](https://fastapi.tiangolo.com/) - 高性能API
+- [Uvicorn](https://www.uvicorn.org/) - ASGI服务器
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能引擎
+- [CAMEL-AI](https://www.camel-ai.org/) - 多智能体框架
+
+---
+
+**版本**: v1.0.0-beta2 (MiroFish) | **更新时间**: 2026-03-27 | **快速上手，立即体验群体智能诊断！**

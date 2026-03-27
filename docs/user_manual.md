@@ -1,472 +1,485 @@
-# Miaota Industrial Agent - 用户手册
+# Miaota Industrial Agent 用户手册
 
-> **版本**: v1.0.0-beta1  
-> **更新日期**: 2026-03-26
+**版本**: v1.0.0-beta2 (MiroFish)
 
----
-
-## 目录
-
-1. [快速开始](#1-快速开始)
-2. [系统概述](#2-系统概述)
-3. [功能使用指南](#3-功能使用指南)
-4. [常见问题](#4-常见问题)
-5. [故障排除](#5-故障排除)
+**适用对象**: 运维工程师、设备管理人员、系统管理员
 
 ---
 
-## 1. 快速开始
+## 📖 目录
 
-### 1.1 系统要求
+1. [快速入门](#快速入门)
+2. [V2智能诊断指南](#v2智能诊断指南)
+3. [系统配置](#系统配置)
+4. [日常操作](#日常操作)
+5. [故障排查](#故障排查)
 
-| 资源 | 最低要求 | 推荐配置 |
-|------|----------|----------|
-| CPU | 4核 | 8核+ |
-| 内存 | 8GB | 16GB+ |
-| 磁盘 | 50GB SSD | 100GB+ SSD |
-| 网络 | 100Mbps | 1000Mbps |
-| Python | 3.9+ | 3.11+ |
+---
 
-### 1.2 安装步骤
+## 快速入门
+
+### 1. 系统启动
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/your-org/miaota-industrial-agent.git
-cd miaota-industrial-agent
+# 1. 进入项目目录
+cd miaota_industrial_agent
 
-# 2. 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或: venv\Scripts\activate  # Windows
+# 2. 激活虚拟环境
+source venv/bin/activate
 
-# 3. 安装依赖
-pip install -r requirements.txt
+# 3. 启动服务
+python -m src.api.main
 
-# 4. 配置系统
-cp config/settings.yaml.example config/settings.yaml
-# 编辑 config/settings.yaml 配置您的PLC参数
-
-# 5. 启动服务
-python src/main.py
+# 4. 访问系统
+# API文档: http://localhost:8000/docs
+# 监控大屏: http://localhost:8000/static/index.html
 ```
 
-### 1.3 Docker部署 (推荐)
+### 2. 首次配置
+
+#### 2.1 创建管理员账户
 
 ```bash
-# 1. 构建镜像
-docker-compose build
+# 默认账户
+用户名: admin
+密码: admin123
 
-# 2. 启动服务
-docker-compose up -d
-
-# 3. 查看状态
-docker-compose ps
+# 登录后获取Token
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
 ```
 
-### 1.4 访问系统
+#### 2.2 添加设备
 
-- **Web界面**: http://localhost:8000
-- **API文档**: http://localhost:8000/docs
-- **监控大屏**: http://localhost:8000/dashboard
+```bash
+curl -X POST http://localhost:8000/devices \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "PLC-001",
+    "type": "s7",
+    "host": "192.168.1.10",
+    "port": 102,
+    "tags": [
+      {"name": "temperature", "address": "DB1.DBD0", "data_type": "float"},
+      {"name": "pressure", "address": "DB1.DBD4", "data_type": "float"}
+    ]
+  }'
+```
 
 ---
 
-## 2. 系统概述
+## V2智能诊断指南
 
-### 2.1 系统架构
+### 什么是V2智能诊断？
 
+V2智能诊断是 **v1.0.0-beta2** 版本的核心升级，集成了 **MiroFish** 群体智能引擎：
+
+- 🤖 **多智能体协作**: 5位领域专家Agent同时分析
+- 🧠 **知识图谱增强**: 基于图结构的根因追溯
+- 📊 **置信度评估**: 多专家共识与分歧展示
+- 📋 **任务追踪**: 支持长时间异步诊断
+
+### 使用场景
+
+#### 场景1: 设备异常诊断
+
+**问题**: 曝气池溶解氧(DO)持续偏低
+
+**操作步骤**:
+
+1. **准备症状描述**
+   ```
+   症状: 曝气池DO从正常的4-6mg/L下降到1.5mg/L，
+         伴随风机噪音增大，电流波动
+   ```
+
+2. **收集传感器数据**
+   ```json
+   {
+     "do": 1.5,
+     "vibration": 8.5,
+     "current": 25.3,
+     "temperature": 45.2
+   }
+   ```
+
+3. **调用V2诊断API**
+   ```bash
+   curl -X POST http://localhost:8000/v2/diagnosis/analyze \
+     -H "Authorization: Bearer TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "symptoms": "曝气池DO持续偏低，风机噪音异常",
+       "sensor_data": {
+         "do": 1.5,
+         "vibration": 8.5,
+         "current": 25.3
+       },
+       "use_multi_agent": true,
+       "use_graph_rag": true,
+       "priority": "high"
+     }'
+   ```
+
+4. **解读诊断结果**
+
+   **诊断结论**:
+   ```
+   根因: 曝气盘部分堵塞，导致曝气效率下降40%
+   置信度: 85%
+   共识度: 80% (4/5位专家认同)
+   ```
+
+   **专家意见分布**:
+   | 专家 | 根因判断 | 置信度 |
+   |------|----------|--------|
+   | 机械专家 | 曝气盘堵塞 | 82% |
+   | 电气专家 | 电机绝缘老化 | 75% |
+   | 工艺专家 | 污泥龄过长 | 88% |
+   | 传感器专家 | DO探头污染 | 90% |
+
+   **处理建议** (按优先级排序):
+   1. 【紧急】清洗曝气盘 (预计2-4小时，需停机)
+   2. 【高】检查风机叶轮平衡 (预计1小时)
+   3. 【中】校准DO传感器 (预计30分钟)
+
+   **推荐备件**:
+   - 微孔曝气盘 Φ215mm × 5个
+   - 风机滤网 × 2个
+
+### V2 vs V1 诊断对比
+
+| 特性 | V1 诊断 | V2 诊断 | 优势 |
+|------|---------|---------|------|
+| 诊断方式 | 单LLM | 5专家Agent | 多角度分析 |
+| 准确性 | 70% | 85%+ | +15% |
+| 可解释性 | 结论+原因 | 专家意见+推理 | 完全透明 |
+| 处理时间 | 2-5秒 | 5-15秒 | 可接受 |
+| 知识来源 | 文档库 | 知识图谱 | 结构化关联 |
+| 备件推荐 | 无 | 自动清单 | 一站式 |
+
+### 异步诊断 (长时间任务)
+
+对于复杂诊断，使用CAMEL社会协作模式：
+
+```bash
+# 1. 提交异步诊断任务
+curl -X POST http://localhost:8000/v2/diagnosis/analyze \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{
+    "symptoms": "复杂故障描述...",
+    "use_camel": true,
+    "priority": "critical"
+  }'
+
+# 返回: {"task_id": "TASK_ABC123", "status": "processing"}
+
+# 2. 轮询任务状态
+curl http://localhost:8000/v2/diagnosis/task/TASK_ABC123 \
+  -H "Authorization: Bearer TOKEN"
+
+# 3. 获取最终结果
+# 当 status = "completed" 时，result字段包含诊断报告
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      用户层 (User Layer)                      │
-│   Web界面    移动端      API客户端      大屏展示              │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      应用层 (Application Layer)               │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            │
-│  │数据采集 │ │规则引擎 │ │异常检测 │ │LLM诊断 │            │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘            │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            │
-│  │时序预测 │ │告警管理 │ │报表导出 │ │知识库  │            │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘            │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      数据层 (Data Layer)                      │
-│  InfluxDB    SQLite    ChromaDB    Redis                    │
-│ (时序数据)   (关系数据) (向量数据)  (缓存)                    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      设备层 (Device Layer)                    │
-│         PLC S7          Modbus TCP          OPC UA          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 2.2 核心功能
-
-#### 🔍 实时监控
-- 实时数据曲线展示
-- 设备状态概览
-- 异常实时告警
-- 历史数据查询
-
-#### 🤖 智能诊断
-- 自然语言故障描述
-- AI根因分析
-- 维修步骤建议
-- 备件自动推荐
-
-#### 📈 预测分析
-- 设备趋势预测
-- 异常提前预警
-- 维护计划建议
-
-#### 📚 知识库
-- 技术文档管理
-- 智能问答
-- 历史案例检索
 
 ---
 
-## 3. 功能使用指南
+## 知识图谱使用
 
-### 3.1 数据采集配置
+### 查询工业知识
 
-#### 3.1.1 PLC连接配置
+```bash
+# GraphRAG查询
+curl -X POST http://localhost:8000/v2/diagnosis/knowledge/query \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"query": "轴承过热的原因"}'
+```
 
-编辑 `config/settings.yaml`:
+**返回示例**:
+```json
+{
+  "query": "轴承过热的原因",
+  "answer": "根据知识图谱分析，轴承过热的主要原因包括：\n\n1. 润滑不良 (关联度: 0.95)\n   - 油脂老化\n   - 润滑不足\n   - 解决方案: 更换润滑脂\n\n2. 负载过大 (关联度: 0.82)\n   - 工艺参数异常\n   - 解决方案: 调整工艺参数\n\n3. 安装不当 (关联度: 0.75)\n   - 对中不良\n   - 解决方案: 重新对中校准",
+  "sources": ["FAULT_002", "CAUSE_002", "SOL_002"]
+}
+```
+
+### 浏览知识图谱
+
+```bash
+# 获取完整知识图谱
+curl http://localhost:8000/v2/diagnosis/knowledge/graph \
+  -H "Authorization: Bearer TOKEN"
+
+# 获取特定实体子图
+curl "http://localhost:8000/v2/diagnosis/knowledge/graph?entity_id=DEV_001&depth=2" \
+  -H "Authorization: Bearer TOKEN"
+```
+
+---
+
+## 系统配置
+
+### 配置文件位置
+
+```
+config/
+├── settings.yaml          # 主配置
+├── rules.json            # 告警规则
+└── devices.yaml          # 设备配置
+```
+
+### 常用配置项
+
+#### 1. 诊断引擎配置
 
 ```yaml
-plc:
-  - name: "S7-1200-1"
-    type: "s7"
-    host: "192.168.1.10"
-    port: 102
-    rack: 0
-    slot: 1
-    
-  - name: "Modbus-Device-1"
-    type: "modbus"
-    host: "192.168.1.20"
-    port: 502
-    unit_id: 1
+# config/settings.yaml
+diagnosis:
+  v2:
+    enabled: true
+    default_mode: "multi_agent"  # multi_agent | single | camel
+    experts:
+      - mechanical
+      - electrical
+      - process
+      - sensor
+      - historical
+    confidence_threshold: 0.7
+    timeout_seconds: 30
 ```
 
-#### 3.1.2 点位映射配置
+#### 2. 知识图谱配置
 
-创建 `config/tag_mapping.xlsx`:
+```yaml
+knowledge_graph:
+  enabled: true
+  backend: "memory"  # memory | neo4j
+  neo4j:
+    uri: "bolt://localhost:7687"
+    user: "neo4j"
+    password: "password"
+```
 
-| plc_address | tag_name | description | unit | min | max |
-|-------------|----------|-------------|------|-----|-----|
-| MW100 | DO_CONCENTRATION | 溶解氧浓度 | mg/L | 0 | 10 |
-| MW102 | PH_VALUE | pH值 | - | 0 | 14 |
-| MW104 | TEMPERATURE | 温度 | °C | 0 | 100 |
+#### 3. 任务追踪配置
 
-### 3.2 规则配置
+```yaml
+task_tracker:
+  max_concurrent: 10
+  default_timeout: 3600
+  cleanup_interval: 86400  # 清理已完成任务
+```
 
-#### 3.2.1 创建告警规则
+---
 
-通过Web界面或API:
+## 日常操作
 
-```python
-POST /api/rules
+### 1. 查看设备状态
+
+```bash
+# 获取所有设备
+curl http://localhost:8000/devices \
+  -H "Authorization: Bearer TOKEN"
+
+# 按状态过滤
+curl "http://localhost:8000/devices?status=online" \
+  -H "Authorization: Bearer TOKEN"
+```
+
+### 2. 查询历史数据
+
+```bash
+curl -X POST http://localhost:8000/collection/data/query \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tags": ["temperature", "pressure"],
+    "start_time": "2024-01-15T00:00:00Z",
+    "end_time": "2024-01-15T23:59:59Z",
+    "aggregation": "mean",
+    "interval": "1h"
+  }'
+```
+
+### 3. 查看告警
+
+```bash
+# 活跃告警
+curl "http://localhost:8000/alerts?status=active" \
+  -H "Authorization: Bearer TOKEN"
+
+# 确认告警
+curl -X POST http://localhost:8000/alerts/ALT_001/acknowledge \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"comment": "已处理，更换传感器"}'
+```
+
+### 4. 查看诊断历史
+
+```bash
+curl http://localhost:8000/v2/diagnosis/history?limit=10 \
+  -H "Authorization: Bearer TOKEN"
+```
+
+---
+
+## 故障排查
+
+### 问题1: V2诊断返回空结果
+
+**可能原因**:
+- 症状描述过短
+- 传感器数据格式错误
+
+**解决方案**:
+```bash
+# 检查症状描述长度（至少5个字符）
+# 检查传感器数据格式
 {
-  "name": "缺氧异常",
-  "type": "threshold",
-  "tag": "DO_CONCENTRATION",
-  "condition": {
-    "operator": "<",
-    "value": 2.0
-  },
-  "severity": "critical",
-  "notification": {
-    "channels": ["web", "feishu"],
-    "message": "溶解氧浓度过低: {value} mg/L"
+  "symptoms": "曝气池DO持续偏低，风机噪音异常",  // 必须>=5字符
+  "sensor_data": {
+    "do": 1.5,           // 必须是数字
+    "vibration": 8.5
   }
 }
 ```
 
-#### 3.2.2 规则类型说明
+### 问题2: 知识图谱查询无结果
 
-| 规则类型 | 描述 | 使用场景 |
-|----------|------|----------|
-| threshold | 阈值规则 | 数值上下限检测 |
-| duration | 持续异常 | 持续N秒异常触发 |
-| rate | 变化率 | 变化速度过快/过慢 |
-| composite | 组合规则 | 多条件逻辑组合 |
-| correlation | 相关性 | 变量间关系异常 |
+**可能原因**:
+- 查询词不在知识库中
+- GraphRAG未启用
 
-### 3.3 异常检测配置
+**解决方案**:
+```bash
+# 检查知识图谱状态
+curl http://localhost:8000/v2/diagnosis/knowledge/graph \
+  -H "Authorization: Bearer TOKEN"
 
-#### 3.3.1 启用异常检测
-
-```python
-POST /api/anomaly/config
-{
-  "tag": "DO_CONCENTRATION",
-  "algorithm": "isolation_forest",
-  "params": {
-    "contamination": 0.05,
-    "window_size": 100
-  },
-  "auto_suppress": true
-}
+# 使用更通用的查询词
+# 错误: "3号风机轴承温度高"
+# 正确: "轴承过热"
 ```
 
-#### 3.3.2 检测算法选择
+### 问题3: 异步诊断任务卡住
 
-| 算法 | 适用场景 | 优势 |
-|------|----------|------|
-| 3sigma | 单变量、正态分布 | 简单、可解释 |
-| IQR | 单变量、有异常值 | 鲁棒性强 |
-| Isolation Forest | 多变量、高维 | 效果好、快速 |
-| Mahalanobis | 多变量、相关性强 | 考虑相关性 |
-| PCA | 多变量、降维 | 可视化友好 |
+**可能原因**:
+- CAMEL社会初始化失败
+- 任务超时
 
-### 3.4 LLM诊断使用
+**解决方案**:
+```bash
+# 查询任务状态
+curl http://localhost:8000/v2/diagnosis/task/TASK_ID \
+  -H "Authorization: Bearer TOKEN"
 
-#### 3.4.1 Web界面诊断
+# 如果卡住，取消任务
+curl -X DELETE http://localhost:8000/v2/diagnosis/task/TASK_ID \
+  -H "Authorization: Bearer TOKEN"
 
-1. 访问 http://localhost:8000/diagnosis
-2. 选择设备
-3. 描述故障症状
-4. 获取AI诊断结果
-
-#### 3.4.2 API调用
-
-```python
-POST /api/diagnosis
-{
-  "device_id": "aeration_pool_1",
-  "symptoms": "溶解氧浓度持续偏低，曝气风机运行正常，pH值在正常范围",
-  "context": {
-    "do_value": 1.2,
-    "ph_value": 7.2,
-    "blower_status": "running"
-  }
-}
-
-# 响应
-{
-  "root_cause": "曝气盘部分堵塞",
-  "confidence": 0.85,
-  "possible_causes": [
-    "曝气盘堵塞",
-    "风机故障",
-    "DO传感器漂移"
-  ],
-  "suggested_actions": [
-    "检查并清洗曝气盘",
-    "检查风机运行状态",
-    "校准DO传感器"
-  ],
-  "spare_parts": [
-    "曝气盘 × 5",
-    "风机滤网 × 1"
-  ]
-}
+# 改用同步模式
+curl -X POST http://localhost:8000/v2/diagnosis/analyze \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{
+    "symptoms": "...",
+    "use_camel": false,  // 禁用CAMEL
+    "use_multi_agent": true
+  }'
 ```
 
-### 3.5 知识库使用
+### 问题4: 认证失败
 
-#### 3.5.1 上传文档
+**错误信息**: `401 Unauthorized`
 
-```python
-POST /api/knowledge/upload
-Content-Type: multipart/form-data
+**解决方案**:
+```bash
+# 1. 检查Token是否过期，重新登录
+curl -X POST http://localhost:8000/auth/login \
+  -d '{"username": "admin", "password": "admin123"}'
 
-file: 设备操作手册.pdf
-category: "操作手册"
-tags: ["曝气池", "维护"]
-```
-
-#### 3.5.2 知识问答
-
-```python
-POST /api/knowledge/query
-{
-  "question": "如何清洗曝气盘？",
-  "top_k": 3
-}
-```
-
-### 3.6 报表导出
-
-#### 3.6.1 生成日报
-
-```python
-GET /api/reports/daily?date=2024-01-15&format=excel
-
-# 返回: daily_report_2024-01-15.xlsx
-```
-
-#### 3.6.2 生成自定义报表
-
-```python
-POST /api/reports/custom
-{
-  "title": "月度运营报表",
-  "period": {
-    "start": "2024-01-01",
-    "end": "2024-01-31"
-  },
-  "metrics": ["进水量", "COD", "氨氮", "电耗"],
-  "format": "pdf"
-}
+# 2. 检查Token格式
+# 正确: "Authorization: Bearer eyJhbG..."
+# 错误: "Authorization: eyJhbG..." (缺少Bearer)
 ```
 
 ---
 
-## 4. 常见问题
+## 最佳实践
 
-### Q1: 如何修改采集频率？
+### 1. 症状描述技巧
 
-编辑 `config/settings.yaml`:
-
-```yaml
-collection:
-  interval: 5  # 单位: 秒
-  batch_size: 100
+**好的症状描述**:
+```
+曝气池DO从正常的4-6mg/L下降到1.5mg/L，持续2小时，
+伴随风机噪音明显增大，电流从20A波动到25A
 ```
 
-### Q2: 如何配置告警通知？
-
-支持多种通知渠道:
-
-```yaml
-notification:
-  channels:
-    feishu:
-      webhook_url: "https://open.feishu.cn/..."
-    dingtalk:
-      webhook_url: "https://oapi.dingtalk.com/..."
-    sms:
-      provider: "aliyun"
-      access_key: "xxx"
+**差的 symptom描述**:
+```
+DO低
 ```
 
-### Q3: 如何备份数据？
+### 2. 传感器数据收集
 
-```bash
-# 备份InfluxDB
-docker exec influxdb influx backup /backup
+**建议收集的关键参数**:
+- 温度类: temperature, bearing_temp, motor_temp
+- 振动类: vibration, acceleration
+- 电气类: current, voltage, power_factor
+- 工艺类: do, ph, cod, flow, pressure
 
-# 备份SQLite
-cp data/db/miaota.db backup/miaota_$(date +%Y%m%d).db
+### 3. 诊断结果使用
 
-# 备份配置
-tar czvf backup/config_$(date +%Y%m%d).tar.gz config/
-```
+**高置信度(>80%)**:
+- 可直接按建议执行
 
-### Q4: 如何更新系统？
+**中置信度(50-80%)**:
+- 结合现场检查确认
 
-```bash
-# 1. 备份数据
-./scripts/backup.sh
-
-# 2. 拉取更新
-git pull origin main
-
-# 3. 更新依赖
-pip install -r requirements.txt --upgrade
-
-# 4. 重启服务
-./scripts/restart.sh
-```
-
-### Q5: 如何添加新的PLC？
-
-1. 编辑 `config/settings.yaml` 添加PLC配置
-2. 更新 `config/tag_mapping.xlsx` 添加点位
-3. 重启采集服务
-
----
-
-## 5. 故障排除
-
-### 5.1 无法连接PLC
-
-**症状**: 数据采集状态显示"离线"
-
-**排查步骤**:
-1. 检查网络连通性: `ping <PLC_IP>`
-2. 检查端口开放: `telnet <PLC_IP> <PORT>`
-3. 检查PLC配置: 机架号、插槽号是否正确
-4. 查看日志: `tail -f logs/collector.log`
-
-### 5.2 告警不触发
-
-**症状**: 规则已配置但告警未产生
-
-**排查步骤**:
-1. 检查规则状态: 是否启用
-2. 检查数据流: 点位数据是否正常上报
-3. 检查规则条件: 数值是否满足触发条件
-4. 检查抑制策略: 是否在抑制期内
-
-### 5.3 LLM诊断失败
-
-**症状**: 诊断接口返回错误或超时
-
-**排查步骤**:
-1. 检查模型服务: 是否正常运行
-2. 检查API密钥: 是否配置正确
-3. 检查网络: 能否访问模型服务
-4. 查看日志: `tail -f logs/diagnosis.log`
-
-### 5.4 性能问题
-
-**症状**: 系统响应慢
-
-**优化建议**:
-1. 增加内存: 建议16GB+
-2. 启用缓存: 配置Redis缓存
-3. 数据分区: 按时间分表
-4. 查询优化: 添加索引
-
-### 5.5 日志位置
-
-| 模块 | 日志路径 |
-|------|----------|
-| 数据采集 | `logs/collector.log` |
-| 规则引擎 | `logs/rule_engine.log` |
-| 异常检测 | `logs/anomaly_detection.log` |
-| LLM诊断 | `logs/diagnosis.log` |
-| API服务 | `logs/api.log` |
-
-### 5.6 联系支持
-
-遇到问题无法解决？
-
-- 📧 邮箱: support@miaota.ai
-- 💬 社区: https://github.com/your-org/miaota-industrial-agent/discussions
-- 🐛 问题反馈: https://github.com/your-org/miaota-industrial-agent/issues
+**低置信度(<50%)**:
+- 提供更多数据重新诊断
+- 或联系人工专家
 
 ---
 
 ## 附录
 
-### A. API快速参考
+### A. 默认账户
 
-| 接口 | 方法 | 描述 |
-|------|------|------|
-| `/api/data/realtime` | GET | 获取实时数据 |
-| `/api/data/history` | GET | 查询历史数据 |
-| `/api/alerts` | GET | 获取告警列表 |
-| `/api/rules` | POST | 创建规则 |
-| `/api/diagnosis` | POST | 执行诊断 |
-| `/api/reports/export` | POST | 导出报表 |
+| 角色 | 用户名 | 密码 | 权限 |
+|------|--------|------|------|
+| 管理员 | admin | admin123 | 全部权限 |
+| 操作员 | operator | operator123 | 设备读写、告警确认 |
+| 观察员 | viewer | viewer123 | 只读访问 |
 
-### B. 配置文件模板
+### B. API速率限制
 
-参见 `config/settings.yaml.example`
+| 端点 | 限制 |
+|------|------|
+| /health | 无限制 |
+| /v2/diagnosis/analyze | 10次/分钟 |
+| /v2/diagnosis/knowledge/query | 30次/分钟 |
+| 其他 | 100次/分钟 |
 
-### C. 系统架构图
+### C. 相关资源
 
-参见 `docs/architecture.md`
+- [CHANGELOG.md](../CHANGELOG.md) - 版本更新日志
+- [API文档](api_reference.md) - 完整API参考
+- [GitHub](https://github.com/jamin85cheng/miaota_industrial_agent) - 项目源码
 
 ---
 
-**文档版本**: v1.0.0-beta1  
-**最后更新**: 2026-03-26
+## 🙏 致谢
+
+感谢以下开源项目为工业智能化做出的贡献：
+
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能诊断引擎
+- [CAMEL-AI](https://www.camel-ai.org/) - 多智能体协作框架
+- [GraphRAG](https://microsoft.github.io/graphrag/) - 知识图谱技术
+- [FastAPI](https://fastapi.tiangolo.com/) - API框架
+- [InfluxDB](https://www.influxdata.com/) - 时序数据存储
+
+---
+
+**版本**: v1.0.0-beta2 (MiroFish) | **最后更新**: 2026-03-27

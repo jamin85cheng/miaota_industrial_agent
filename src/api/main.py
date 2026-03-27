@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from src.utils.structured_logging import get_logger, configure_logging
 from src.utils.graceful_shutdown import shutdown_manager
 from src.api.dependencies import init_default_users
-from src.api.routers import health, devices, collection, alerts, analysis, knowledge
+from src.api.routers import health, devices, collection, alerts, analysis, knowledge, diagnosis_v2
 
 # 配置日志
 configure_logging()
@@ -50,12 +50,19 @@ app = FastAPI(
     - **告警管理**: 告警规则与通知
     - **数据分析**: 异常检测与趋势分析
     - **知识库**: 故障诊断与知识检索
+    - **智能诊断V2**: 基于MiroFish的多智能体协同诊断
+    
+    ## V2 新特性 (v1.0.0-beta2)
+    - **多智能体协同诊断**: 5位领域专家Agent协作
+    - **GraphRAG知识图谱**: 图结构知识检索增强
+    - **CAMEL框架集成**: 多智能体社会协作
+    - **任务追踪系统**: 长时诊断任务管理
     
     ## 认证方式
     - Bearer Token (JWT)
     - API Key (请求头: X-API-Key)
     """,
-    version="v1.0.0-beta1",
+    "version="v1.0.0-beta2""}]}
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -184,6 +191,7 @@ app.include_router(collection.router)
 app.include_router(alerts.router)
 app.include_router(analysis.router)
 app.include_router(knowledge.router)
+app.include_router(diagnosis_v2.router)
 
 
 # 根路径
@@ -192,10 +200,16 @@ async def root():
     """API根路径"""
     return {
         "name": "Miaota Industrial Agent API",
-        "version": "v1.0.0-beta1",
+        "version": "v1.0.0-beta2",
         "status": "running",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "features": [
+            "multi-agent-diagnosis",
+            "graph-rag",
+            "camel-integration",
+            "task-tracking"
+        ]
     }
 
 
@@ -263,10 +277,17 @@ async def get_current_user_info(
 async def get_version():
     """获取版本信息"""
     return {
-        "version": "v1.0.0-beta1",
+        "version": "v1.0.0-beta2",
+        "codename": "MiroFish",
         "build_time": "2024-01-15",
-        "git_commit": "abc1234",
-        "python_version": "3.11"
+        "git_commit": "mirofish-integration",
+        "python_version": "3.11",
+        "changelog": [
+            "集成MiroFish多智能体诊断引擎",
+            "新增GraphRAG知识图谱系统",
+            "新增CAMEL框架智能体协作",
+            "新增长时任务追踪系统"
+        ]
     }
 
 

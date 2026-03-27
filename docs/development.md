@@ -1,789 +1,731 @@
-# Miaota Industrial Agent - 开发指南
+# 开发指南
 
-> **版本**: v1.0.0-beta1  
-> **更新日期**: 2026-03-26
+**版本**: v1.0.0-beta2 (MiroFish)
 
----
-
-## 目录
-
-1. [开发环境搭建](#1-开发环境搭建)
-2. [项目结构](#2-项目结构)
-3. [代码规范](#3-代码规范)
-4. [测试指南](#4-测试指南)
-5. [贡献指南](#5-贡献指南)
-6. [架构设计](#6-架构设计)
+**目标读者**: 开发者、贡献者
 
 ---
 
-## 1. 开发环境搭建
+## 📋 目录
 
-### 1.1 前置要求
+1. [开发环境搭建](#开发环境搭建)
+2. [代码规范](#代码规范)
+3. [项目结构](#项目结构)
+4. [V2新模块开发](#v2新模块开发)
+5. [测试指南](#测试指南)
+6. [贡献指南](#贡献指南)
 
-| 工具 | 版本 | 用途 |
-|------|------|------|
-| Python | 3.9+ | 开发语言 |
-| Git | 2.30+ | 版本控制 |
-| Docker | 20.10+ | 容器化 |
-| VSCode | Latest | 推荐IDE |
+---
 
-### 1.2 环境配置
+## 开发环境搭建
 
-#### 步骤1: 克隆仓库
+### 1. 克隆项目
 
 ```bash
-git clone https://github.com/your-org/miaota-industrial-agent.git
-cd miaota-industrial-agent
+git clone https://github.com/jamin85cheng/miaota_industrial_agent.git
+cd miaota_industrial_agent
 ```
 
-#### 步骤2: 创建虚拟环境
+### 2. 创建虚拟环境
 
 ```bash
-# 使用venv
-python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或: venv\Scripts\activate  # Windows
+# 使用Python 3.11+
+python3.11 -m venv venv
+source venv/bin/activate
 
-# 或使用conda
-conda create -n miaota python=3.11
-conda activate miaota
+# Windows
+# python -m venv venv
+# venv\Scripts\activate
 ```
 
-#### 步骤3: 安装依赖
+### 3. 安装开发依赖
 
 ```bash
-# 开发依赖
-pip install -r requirements-dev.txt
-
-# 生产依赖
+# 基础依赖
 pip install -r requirements.txt
+
+# 开发工具
+pip install pytest pytest-asyncio pytest-cov black isort flake8 mypy
+
+# V2新特性依赖 (可选)
+pip install camel-ai neo4j
 ```
 
-#### 步骤4: 安装pre-commit钩子
+### 4. 配置开发环境
 
 ```bash
-pre-commit install
+# 创建开发配置
+cp config/settings.example.yaml config/settings.yaml
+# 编辑配置文件，修改数据库路径等
+
+# 初始化数据库
+python migrations/migration_manager.py init
+python migrations/migration_manager.py migrate
 ```
 
-#### 步骤5: 配置环境变量
+### 5. 启动开发服务器
 
 ```bash
-cp .env.example .env
-# 编辑 .env 文件
-```
+# 热重载模式
+uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 
-### 1.3 启动开发服务器
-
-```bash
-# 方式1: 直接启动
-python src/main.py --reload
-
-# 方式2: 使用uvicorn
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-
-# 方式3: Docker
-make dev
-```
-
-### 1.4 VSCode 配置
-
-创建 `.vscode/settings.json`:
-
-```json
-{
-  "python.defaultInterpreterPath": "./venv/bin/python",
-  "python.linting.enabled": true,
-  "python.linting.pylintEnabled": true,
-  "python.linting.flake8Enabled": true,
-  "python.formatting.provider": "black",
-  "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": true
-  }
-}
+# 或使用启动脚本
+python start.py --dev
 ```
 
 ---
 
-## 2. 项目结构
+## 代码规范
 
-### 2.1 目录组织
+### Python代码风格
+
+使用 **Black** 进行代码格式化：
+
+```bash
+# 格式化代码
+black src/ tests/
+
+# 检查格式
+black --check src/ tests/
+```
+
+### 导入排序
+
+使用 **isort**：
+
+```bash
+# 排序导入
+isort src/ tests/
+
+# 检查导入顺序
+isort --check-only src/ tests/
+```
+
+### 代码检查
+
+使用 **Flake8**：
+
+```bash
+# 代码检查
+flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203
+```
+
+### 类型检查
+
+使用 **MyPy**：
+
+```bash
+# 类型检查
+mypy src/ --ignore-missing-imports
+```
+
+### 预提交钩子
+
+```bash
+# 安装pre-commit
+pip install pre-commit
+pre-commit install
+
+# .pre-commit-config.yaml示例
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.1.0
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+```
+
+---
+
+## 项目结构
 
 ```
 miaota_industrial_agent/
-├── src/                        # 源代码
-│   ├── api/                    # API层 (接口定义)
-│   │   ├── __init__.py
-│   │   ├── gateway.py          # 网关
-│   │   ├── auth.py             # 认证API
-│   │   ├── data_api.py         # 数据API
-│   │   ├── alert_api.py        # 告警API
-│   │   ├── rule_api.py         # 规则API
-│   │   ├── diagnosis_api.py    # 诊断API
-│   │   ├── report_api.py       # 报表API
-│   │   └── websocket_server.py # WebSocket
+├── src/
+│   ├── api/                      # 🔷 FastAPI后端
+│   │   ├── main.py               # 应用入口
+│   │   ├── dependencies.py       # 依赖注入
+│   │   ├── middleware/           # 中间件
+│   │   └── routers/              # API路由
+│   │       ├── health.py
+│   │       ├── devices.py
+│   │       ├── collection.py
+│   │       ├── alerts.py
+│   │       ├── analysis.py
+│   │       ├── knowledge.py
+│   │       └── diagnosis_v2.py   # 🆕 V2智能诊断
 │   │
-│   ├── core/                   # 核心模块 (业务逻辑)
+│   ├── diagnosis/                # 🆕 多智能体诊断 [v1.0.0-beta2]
 │   │   ├── __init__.py
-│   │   ├── tag_mapping.py      # 点位映射
-│   │   ├── config_manager.py   # 配置管理
-│   │   ├── event_bus.py        # 事件总线
-│   │   └── audit_logger.py     # 审计日志
+│   │   └── multi_agent_diagnosis.py   # 651行
+│   │       # - MultiAgentDiagnosisEngine
+│   │       # - LLMExpertAgent
+│   │       # - ExpertOpinion
 │   │
-│   ├── data/                   # 数据层
+│   ├── knowledge/                # 🆕 GraphRAG [v1.0.0-beta2]
 │   │   ├── __init__.py
-│   │   ├── collector.py        # PLC采集
-│   │   ├── buffer.py           # 数据缓存
-│   │   ├── compression.py      # 数据压缩
-│   │   ├── storage.py          # 存储抽象
-│   │   ├── influx_storage.py   # InfluxDB
-│   │   ├── sqlite_storage.py   # SQLite
-│   │   └── preprocessor.py     # 数据预处理
+│   │   └── graph_rag.py          # 579行
+│   │       # - KnowledgeGraph
+│   │       # - GraphRAG
+│   │       # - Entity/Relation
 │   │
-│   ├── rules/                  # 规则引擎
+│   ├── agents/                   # 🆕 CAMEL框架 [v1.0.0-beta2]
 │   │   ├── __init__.py
-│   │   ├── rule_engine.py      # 规则执行
-│   │   ├── rule_types.py       # 规则类型
-│   │   └── escalation.py       # 告警升级
+│   │   └── camel_integration.py  # 526行
+│   │       # - CamelAgent
+│   │       # - CamelSociety
+│   │       # - IndustrialDiagnosisSociety
 │   │
-│   ├── models/                 # AI/ML模型
+│   ├── tasks/                    # 🆕 任务追踪 [v1.0.0-beta2]
 │   │   ├── __init__.py
-│   │   ├── anomaly_detection.py
-│   │   ├── multi_variate_detection.py
-│   │   ├── adaptive_threshold.py
-│   │   ├── forecasting/        # 时序预测
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py
-│   │   │   ├── prophet_model.py
-│   │   │   ├── arima_model.py
-│   │   │   ├── lstm_model.py
-│   │   │   └── model_manager.py
-│   │   ├── llm_diagnosis.py
-│   │   ├── diagnosis_report.py
-│   │   └── feature_engineering.py
+│   │   └── task_tracker.py       # 501行
+│   │       # - TaskTracker
+│   │       # - TrackedTask
+│   │       # - TaskProgress
 │   │
-│   ├── knowledge/              # 知识库(RAG)
-│   │   ├── __init__.py
-│   │   ├── document_loader.py
-│   │   ├── document_chunker.py
-│   │   ├── vector_store.py
-│   │   └── rag_engine.py
+│   ├── security/                 # 🔐 安全模块
+│   │   ├── rbac.py               # 权限控制
+│   │   ├── auth.py               # 认证
+│   │   └── multitenancy.py       # 多租户
 │   │
-│   ├── utils/                  # 工具类
-│   │   ├── __init__.py
-│   │   ├── logger.py
-│   │   ├── report_exporter.py
-│   │   └── data_quality.py
-│   │
-│   └── web/                    # Web前端
-│       ├── static/
-│       ├── templates/
-│       └── app.py
+│   ├── core/                     # 核心功能
+│   ├── data/                     # 数据采集/存储
+│   ├── rules/                    # 规则引擎
+│   ├── models/                   # AI模型
+│   └── utils/                    # 工具函数
+│       ├── structured_logging.py
+│       ├── thread_safe.py
+│       └── graceful_shutdown.py
 │
-├── security/                   # 安全模块
-│   ├── __init__.py
-│   ├── auth.py
-│   ├── rbac.py
-│   ├── audit.py
-│   └── compliance.py
+├── tests/                        # 🧪 测试
+│   ├── unit/                     # 单元测试
+│   │   ├── test_multi_agent.py   # 🆕
+│   │   ├── test_graph_rag.py     # 🆕
+│   │   └── ...
+│   ├── integration/              # 集成测试
+│   ├── load/                     # 压力测试 (Locust)
+│   └── conftest.py               # pytest配置
 │
-├── tests/                      # 测试代码
-│   ├── unit/                   # 单元测试
-│   ├── integration/            # 集成测试
-│   ├── e2e/                    # 端到端测试
-│   └── conftest.py             # pytest配置
-│
-├── config/                     # 配置
-│   ├── settings.yaml
-│   └── rules/
-│
-├── docs/                       # 文档
-│   ├── user_manual.md
+├── docs/                         # 📚 文档
 │   ├── api_reference.md
+│   ├── user_manual.md
 │   ├── deployment.md
 │   └── development.md
 │
-├── scripts/                    # 脚本
-│   ├── start.sh
-│   ├── stop.sh
-│   ├── backup.sh
-│   └── setup.sh
-│
-├── docker/                     # Docker配置
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── docker-compose.prod.yml
-│
-├── requirements.txt            # 生产依赖
-├── requirements-dev.txt        # 开发依赖
-├── Makefile                    # 构建脚本
-├── CHANGELOG.md                # 版本历史
-├── PROJECT_STATUS.md           # 项目状态
-├── REQUIREMENTS_SPEC.md        # 需求规格
-└── README.md                   # 项目说明
+├── migrations/                   # 数据库迁移
+├── scripts/                      # 工具脚本
+├── config/                       # 配置文件
+├── CHANGELOG.md                  # 🆕 版本日志
+└── README.md
 ```
-
-### 2.2 模块职责
-
-| 模块 | 职责 | 关键类 |
-|------|------|--------|
-| api | 接口层 | FastAPI路由 |
-| core | 业务核心 | 领域模型、业务逻辑 |
-| data | 数据访问 | 存储抽象、数据转换 |
-| rules | 规则引擎 | 规则定义、执行引擎 |
-| models | AI模型 | 检测、预测、诊断 |
-| knowledge | 知识库 | RAG引擎、文档处理 |
-| utils | 工具 | 日志、导出、质量 |
-| security | 安全 | 认证、权限、审计 |
 
 ---
 
-## 3. 代码规范
+## V2新模块开发
 
-### 3.1 Python 代码规范
+### 1. 多智能体诊断模块
 
-遵循 [PEP 8](https://pep8.org/) 和 [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
-
-#### 命名规范
-
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| 模块名 | 小写，下划线分隔 | `data_collector.py` |
-| 类名 | 大驼峰 | `DataCollector` |
-| 函数名 | 小写，下划线分隔 | `collect_data()` |
-| 常量 | 大写，下划线分隔 | `MAX_RETRY_COUNT` |
-| 私有变量 | 下划线前缀 | `_internal_data` |
-
-#### 代码格式
-
-使用 Black 进行代码格式化:
-
-```bash
-# 格式化单个文件
-black src/data/collector.py
-
-# 格式化整个项目
-black src/
-
-# 检查格式
-black --check src/
-```
-
-#### 导入排序
-
-使用 isort 进行导入排序:
-
-```bash
-isort src/
-```
-
-#### 类型注解
-
-强制使用类型注解:
+#### 添加新专家Agent
 
 ```python
-from typing import List, Dict, Optional
+# src/diagnosis/multi_agent_diagnosis.py
 
-def process_data(
-    data: List[Dict[str, float]],
-    threshold: float = 0.5
-) -> Optional[Dict[str, any]]:
-    """处理数据并返回结果.
-    
-    Args:
-        data: 输入数据列表
-        threshold: 阈值
-        
-    Returns:
-        处理结果，失败返回None
-    """
-    pass
-```
-
-### 3.2 文档字符串规范
-
-使用 Google Style 文档字符串:
-
-```python
-def calculate_anomaly_score(
-    values: np.ndarray,
-    algorithm: str = "isolation_forest"
-) -> np.ndarray:
-    """计算异常分数.
-    
-    使用机器学习算法计算输入数据的异常分数。
-    
-    Args:
-        values: 输入数据数组，形状为 (n_samples, n_features)
-        algorithm: 异常检测算法，可选值为:
-            - "isolation_forest": 孤立森林
-            - "lof": 局部异常因子
-            - "mahalanobis": 马氏距离
+class MultiAgentDiagnosisEngine:
+    def _init_experts(self):
+        # 添加新专家配置
+        new_expert_config = {
+            "type": ExpertType.NEW_DOMAIN,
+            "name": "新领域专家",
+            "prompt": """你是新领域诊断专家...
             
-    Returns:
-        异常分数数组，形状为 (n_samples,)，
-        分数越大表示越异常
+你的专长包括：
+- 专长1
+- 专长2
+
+分析时请重点关注：
+1. 要点1
+2. 要点2
+"""
+        }
         
-    Raises:
-        ValueError: 当algorithm参数不合法时
-        RuntimeError: 当模型训练失败时
-        
-    Example:
-        >>> data = np.random.randn(100, 5)
-        >>> scores = calculate_anomaly_score(data, "isolation_forest")
-        >>> print(f"异常样本数: {(scores > 0.5).sum()}")
-    """
+        # 注册到专家列表
+        expert = LLMExpertAgent(
+            expert_type=new_expert_config["type"],
+            name=new_expert_config["name"],
+            system_prompt=new_expert_config["prompt"],
+            llm_client=self.llm_client
+        )
+        self.experts[new_expert_config["type"]] = expert
+```
+
+#### 自定义诊断逻辑
+
+```python
+# 在MultiAgentDiagnosisEngine中添加自定义协调器
+
+async def custom_coordinate(self, opinions: List[ExpertOpinion]) -> Dict[str, Any]:
+    """自定义意见整合逻辑"""
+    # 实现特定的共识算法
     pass
 ```
 
-### 3.3 错误处理
+### 2. GraphRAG知识图谱
+
+#### 扩展实体类型
 
 ```python
-from loguru import logger
+# src/knowledge/graph_rag.py
 
-class DataCollectionError(Exception):
-    """数据采集异常."""
-    pass
-
-def collect_plc_data(plc_config: Dict) -> List[Dict]:
-    """采集PLC数据."""
-    try:
-        # 连接PLC
-        plc = connect_plc(plc_config)
-        
-        # 读取数据
-        data = plc.read_data()
-        
-        return data
-        
-    except ConnectionError as e:
-        logger.error(f"PLC连接失败: {e}")
-        raise DataCollectionError(f"无法连接到PLC: {plc_config['host']}") from e
-        
-    except TimeoutError as e:
-        logger.warning(f"PLC读取超时: {e}")
-        # 返回缓存数据
-        return get_cached_data(plc_config['name'])
-        
-    except Exception as e:
-        logger.exception(f"未知错误: {e}")
-        raise
-```
-
-### 3.4 日志规范
-
-```python
-from loguru import logger
-
-# 正确用法
-logger.info("开始数据采集")
-logger.debug("原始数据: {}", raw_data)
-logger.warning("数据质量警告: 缺失值 {}%", missing_rate * 100)
-logger.error("PLC连接失败: {}", error_msg)
-logger.exception("处理异常")  # 自动包含堆栈
-
-# 结构化日志
-logger.info(
-    "数据上报完成",
-    extra={
-        "tag_count": len(tags),
-        "data_points": total_points,
-        "duration_ms": elapsed_time
+class KnowledgeGraph:
+    # 添加新实体类型
+    ENTITY_TYPES = {
+        "device": "设备",
+        "component": "部件",
+        "fault": "故障",
+        # ... 新增
+        "maintenance_record": "维护记录",
+        "supplier": "供应商"
     }
+    
+    RELATION_TYPES = {
+        "causes": "导致",
+        "belongs_to": "属于",
+        # ... 新增
+        "maintained_by": "由...维护",
+        "supplied_by": "由...供应"
+    }
+```
+
+#### 添加知识到图谱
+
+```python
+from src.knowledge import graph_rag, Entity, Relation
+
+# 创建实体
+entity = Entity(
+    id="DEV_NEW_001",
+    name="新设备",
+    entity_type="device",
+    attributes={"type": "新型号", "power": "30kW"},
+    description="新添加的设备"
 )
+
+# 添加到图谱
+graph_rag.kg.add_entity(entity)
+
+# 添加关系
+relation = Relation("DEV_NEW_001", "FAULT_001", "manifests_as")
+graph_rag.kg.add_relation(relation)
+```
+
+### 3. CAMEL智能体开发
+
+#### 创建新社会类型
+
+```python
+# src/agents/camel_integration.py
+
+class MaintenanceSociety(CamelSociety):
+    """维护计划制定社会"""
+    
+    def __init__(self):
+        super().__init__(
+            society_id="maintenance_planning_001",
+            name="维护计划制定委员会",
+            description="制定设备维护计划"
+        )
+        self._init_agents()
+    
+    def _init_agents(self):
+        # 添加专业Agent
+        planner = CamelAgent(
+            agent_id="PLANNER_001",
+            name="维护计划员",
+            role=AgentRole.EXPERT,
+            system_message="你是维护计划专家...",
+            capabilities=["计划制定", "资源调度"]
+        )
+        self.register_agent(planner)
+```
+
+### 4. 任务追踪扩展
+
+#### 自定义任务处理器
+
+```python
+from src.tasks import task_tracker, TrackedTask
+
+async def custom_task_handler(task: TrackedTask, data: dict):
+    """自定义任务处理"""
+    # 分步骤执行
+    steps = [
+        {"name": "数据预处理", "weight": 20},
+        {"name": "模型推理", "weight": 60},
+        {"name": "结果整理", "weight": 20}
+    ]
+    
+    async def process_step(task: TrackedTask, step: dict):
+        # 执行步骤
+        await do_something()
+        return {"step": step["name"], "status": "ok"}
+    
+    return await task_tracker.execute_with_progress(
+        task, steps, process_step
+    )
+
+# 使用
+task = task_tracker.create_task(
+    task_type="custom_analysis",
+    description="自定义分析任务"
+)
+result = await task_tracker.execute(task, custom_task_handler, data)
 ```
 
 ---
 
-## 4. 测试指南
+## 测试指南
 
-### 4.1 测试结构
+### 1. 单元测试
 
-```
-tests/
-├── conftest.py           # pytest配置和fixture
-├── unit/                 # 单元测试
-│   ├── test_data/
-│   ├── test_rules/
-│   ├── test_models/
-│   └── test_core/
-├── integration/          # 集成测试
-│   ├── test_api/
-│   ├── test_storage/
-│   └── test_collector/
-└── e2e/                  # 端到端测试
-    └── test_workflows/
+```bash
+# 运行所有单元测试
+pytest tests/unit/ -v
+
+# 运行特定测试
+pytest tests/unit/test_multi_agent.py -v
+
+# 带覆盖率
+pytest tests/unit/ --cov=src --cov-report=html
 ```
 
-### 4.2 单元测试
+#### 多智能体诊断测试示例
 
 ```python
-# tests/unit/test_rules/test_rule_engine.py
+# tests/unit/test_multi_agent.py
+
 import pytest
-from src.rules.rule_engine import RuleEngine
-from src.rules.rule_types import ThresholdRule
+from src.diagnosis import MultiAgentDiagnosisEngine
 
-class TestRuleEngine:
-    """规则引擎单元测试."""
+@pytest.fixture
+def diagnosis_engine():
+    return MultiAgentDiagnosisEngine()
+
+@pytest.mark.asyncio
+async def test_multi_agent_diagnose(diagnosis_engine):
+    result = await diagnosis_engine.diagnose(
+        symptoms="测试症状",
+        sensor_data={"temp": 50.0}
+    )
     
-    @pytest.fixture
-    def engine(self):
-        return RuleEngine()
+    assert result.confidence > 0
+    assert len(result.expert_opinions) == 5
+    assert result.final_conclusion is not None
+
+@pytest.mark.asyncio
+async def test_expert_opinion_format(diagnosis_engine):
+    opinion = await diagnosis_engine.experts[ExpertType.MECHANICAL].analyze(
+        symptoms="轴承过热",
+        sensor_data={"vibration": 10.0}
+    )
     
-    def test_threshold_rule_trigger(self, engine):
-        """测试阈值规则触发."""
-        # Arrange
-        rule = ThresholdRule(
-            name="test_rule",
-            tag="temperature",
-            operator=">",
-            threshold=100.0
-        )
-        engine.add_rule(rule)
-        
-        # Act
-        result = engine.evaluate({"temperature": 105.0})
-        
-        # Assert
-        assert result.triggered is True
-        assert result.rule_name == "test_rule"
-    
-    def test_threshold_rule_not_trigger(self, engine):
-        """测试阈值规则不触发."""
-        rule = ThresholdRule(
-            name="test_rule",
-            tag="temperature",
-            operator=">",
-            threshold=100.0
-        )
-        engine.add_rule(rule)
-        
-        result = engine.evaluate({"temperature": 95.0})
-        
-        assert result.triggered is False
-    
-    @pytest.mark.parametrize("value,expected", [
-        (105.0, True),
-        (100.0, False),
-        (95.0, False),
-    ])
-    def test_threshold_boundary(self, engine, value, expected):
-        """测试阈值边界条件."""
-        rule = ThresholdRule(
-            name="test_rule",
-            tag="temperature",
-            operator=">",
-            threshold=100.0
-        )
-        engine.add_rule(rule)
-        
-        result = engine.evaluate({"temperature": value})
-        assert result.triggered is expected
+    assert 0 <= opinion.confidence <= 1
+    assert len(opinion.evidence) > 0
+    assert len(opinion.suggestions) > 0
 ```
 
-### 4.3 集成测试
+### 2. 集成测试
+
+```bash
+# 启动测试服务器
+uvicorn src.api.main:app --port 8001 &
+
+# 运行集成测试
+pytest tests/integration/ -v
+```
+
+#### API集成测试示例
 
 ```python
-# tests/integration/test_api/test_data_api.py
+# tests/integration/test_diagnosis_v2.py
+
 import pytest
 from fastapi.testclient import TestClient
-from src.main import app
+from src.api.main import app
 
 client = TestClient(app)
 
-class TestDataAPI:
-    """数据API集成测试."""
+def test_diagnosis_v2_endpoint():
+    response = client.post(
+        "/v2/diagnosis/analyze",
+        headers={"Authorization": "Bearer test-token"},
+        json={
+            "symptoms": "曝气池DO偏低",
+            "sensor_data": {"do": 1.5},
+            "use_multi_agent": True
+        }
+    )
     
-    def test_get_realtime_data(self):
-        """测试获取实时数据."""
-        response = client.get("/api/v1/data/realtime?tags=DO_CONCENTRATION")
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert "timestamp" in data
-        assert "data" in data
+    assert response.status_code == 200
+    data = response.json()
+    assert "diagnosis_id" in data
+    assert data["status"] == "completed"
+
+def test_knowledge_graph_query():
+    response = client.post(
+        "/v2/diagnosis/knowledge/query",
+        json={"query": "轴承过热"}
+    )
     
-    def test_query_history_data(self):
-        """测试查询历史数据."""
-        response = client.get(
-            "/api/v1/data/history",
-            params={
-                "tag": "DO_CONCENTRATION",
-                "start": "2024-01-01T00:00:00Z",
-                "end": "2024-01-02T00:00:00Z"
-            }
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["tag"] == "DO_CONCENTRATION"
-        assert "data" in data
+    assert response.status_code == 200
+    data = response.json()
+    assert "answer" in data
+    assert len(data["sources"]) > 0
 ```
 
-### 4.4 运行测试
+### 3. 性能测试
 
 ```bash
-# 运行所有测试
-pytest
+# 安装Locust
+pip install locust
 
-# 运行特定测试
-pytest tests/unit/test_rules/
-
-# 运行并生成覆盖率报告
-pytest --cov=src --cov-report=html
-
-# 运行并显示详细输出
-pytest -v
-
-# 运行失败的测试
-pytest --lf
-
-# 并行运行测试
-pytest -n auto
+# 运行压力测试
+cd tests/load
+locust -f locustfile.py --host=http://localhost:8000
 ```
 
-### 4.5 测试覆盖率要求
+#### Locust测试脚本
 
-| 模块 | 覆盖率要求 |
-|------|-----------|
-| core | ≥ 90% |
-| data | ≥ 85% |
-| rules | ≥ 90% |
-| models | ≥ 80% |
-| api | ≥ 85% |
+```python
+# tests/load/locustfile.py
+
+from locust import HttpUser, task, between
+
+class DiagnosisUser(HttpUser):
+    wait_time = between(1, 5)
+    
+    @task(3)
+    def test_diagnosis_v2(self):
+        self.client.post(
+            "/v2/diagnosis/analyze",
+            json={
+                "symptoms": "测试症状",
+                "sensor_data": {"temp": 45.0},
+                "use_multi_agent": True
+            },
+            headers={"Authorization": "Bearer test-token"}
+        )
+    
+    @task(1)
+    def test_knowledge_query(self):
+        self.client.post(
+            "/v2/diagnosis/knowledge/query",
+            json={"query": "轴承过热"}
+        )
+```
 
 ---
 
-## 5. 贡献指南
+## 贡献指南
 
-### 5.1 贡献流程
-
-1. **Fork 仓库**
-2. **创建分支**: `git checkout -b feature/your-feature`
-3. **提交更改**: `git commit -m "feat: add new feature"`
-4. **推送分支**: `git push origin feature/your-feature`
-5. **创建 Pull Request**
-
-### 5.2 提交信息规范
-
-使用 [Conventional Commits](https://www.conventionalcommits.org/):
+### 1. 开发流程
 
 ```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
+1. Fork仓库
+2. 创建特性分支: git checkout -b feature/xxx
+3. 开发并测试
+4. 提交代码: git commit -m "feat: xxx"
+5. 推送到远程: git push origin feature/xxx
+6. 创建Pull Request
 ```
 
-**类型 (type)**:
+### 2. 提交信息规范
 
+使用 **Conventional Commits**：
+
+```
+类型(范围): 简短描述
+
+详细描述
+
+相关Issue: #123
+```
+
+类型：
 - `feat`: 新功能
 - `fix`: Bug修复
 - `docs`: 文档更新
 - `style`: 代码格式
 - `refactor`: 重构
-- `perf`: 性能优化
-- `test`: 测试相关
+- `test`: 测试
 - `chore`: 构建/工具
 
-**示例**:
-
+示例：
 ```
-feat(rules): 添加告警升级功能
+feat(diagnosis): 添加传感器专家Agent
 
-- 实现4级升级策略
-- 支持多渠道通知
-- 添加自动工单创建
+新增传感器专家Agent，用于诊断仪表和传感器故障
 
-Closes #123
-```
+- 实现传感器漂移诊断
+- 添加校准建议生成
+- 更新测试用例
 
-### 5.3 PR检查清单
-
-- [ ] 代码遵循项目规范
-- [ ] 添加/更新了测试
-- [ ] 测试通过
-- [ ] 更新了文档
-- [ ] 更新了CHANGELOG
-
-### 5.4 代码审查
-
-审查关注点:
-
-1. **正确性**: 代码逻辑是否正确
-2. **可读性**: 代码是否易于理解
-3. **性能**: 是否有性能问题
-4. **安全性**: 是否存在安全隐患
-5. **测试**: 测试是否充分
-6. **文档**: 是否有必要注释
-
----
-
-## 6. 架构设计
-
-### 6.1 架构原则
-
-1. **单一职责**: 每个模块只负责一个功能
-2. **依赖倒置**: 依赖抽象而非具体实现
-3. **开闭原则**: 对扩展开放，对修改封闭
-4. **接口隔离**: 提供精简的接口
-
-### 6.2 核心设计模式
-
-#### 发布-订阅模式 (事件总线)
-
-```python
-# src/core/event_bus.py
-from typing import Callable, Dict, List
-
-class EventBus:
-    """事件总线."""
-    
-    def __init__(self):
-        self._subscribers: Dict[str, List[Callable]] = {}
-    
-    def subscribe(self, event_type: str, handler: Callable):
-        """订阅事件."""
-        if event_type not in self._subscribers:
-            self._subscribers[event_type] = []
-        self._subscribers[event_type].append(handler)
-    
-    def publish(self, event_type: str, data: any):
-        """发布事件."""
-        handlers = self._subscribers.get(event_type, [])
-        for handler in handlers:
-            handler(data)
-
-# 使用
-bus = EventBus()
-
-# 订阅
-bus.subscribe("data.received", lambda data: print(data))
-
-# 发布
-bus.publish("data.received", {"value": 3.5})
+Closes #45
 ```
 
-#### 策略模式 (异常检测)
+### 3. 代码审查清单
 
-```python
-from abc import ABC, abstractmethod
+- [ ] 代码符合Black格式
+- [ ] 类型注解完整
+- [ ] 单元测试通过
+- [ ] 文档已更新
+- [ ] CHANGELOG已更新
+- [ ] 无安全漏洞
 
-class AnomalyDetectionStrategy(ABC):
-    """异常检测策略."""
-    
-    @abstractmethod
-    def detect(self, data: np.ndarray) -> np.ndarray:
-        pass
-
-class IsolationForestStrategy(AnomalyDetectionStrategy):
-    def detect(self, data: np.ndarray) -> np.ndarray:
-        model = IsolationForest()
-        return model.fit_predict(data)
-
-class LOFStrategy(AnomalyDetectionStrategy):
-    def detect(self, data: np.ndarray) -> np.ndarray:
-        model = LocalOutlierFactor()
-        return model.fit_predict(data)
-
-class AnomalyDetector:
-    def __init__(self, strategy: AnomalyDetectionStrategy):
-        self._strategy = strategy
-    
-    def detect(self, data: np.ndarray) -> np.ndarray:
-        return self._strategy.detect(data)
-
-# 使用
-detector = AnomalyDetector(IsolationForestStrategy())
-```
-
-#### 工厂模式 (模型创建)
-
-```python
-class ForecastModelFactory:
-    """预测模型工厂."""
-    
-    _models = {
-        "prophet": ProphetModel,
-        "arima": ARIMAModel,
-        "lstm": LSTMModel,
-    }
-    
-    @classmethod
-    def create(cls, model_type: str) -> ForecastModel:
-        if model_type not in cls._models:
-            raise ValueError(f"Unknown model type: {model_type}")
-        return cls._models[model_type]()
-```
-
-### 6.3 数据流
-
-```
-PLC设备
-   │
-   ▼
-采集器 (Collector)
-   │
-   ├─▶ 数据缓存 (Buffer) ──▶ 补传
-   │
-   ▼
-数据预处理 (Preprocessor)
-   │
-   ├─▶ 规则引擎 (RuleEngine) ──▶ 告警
-   │
-   ├─▶ 异常检测 (AnomalyDetector)
-   │
-   ▼
-存储层 (Storage)
-   ├─▶ InfluxDB (时序数据)
-   ├─▶ SQLite (关系数据)
-   └─▶ ChromaDB (向量数据)
-```
-
-### 6.4 扩展点
-
-如需扩展功能，请使用以下扩展点:
-
-| 扩展点 | 接口 | 示例 |
-|--------|------|------|
-| 新PLC协议 | `BaseCollector` | 实现OPC UA采集器 |
-| 新存储后端 | `BaseStorage` | 实现MongoDB存储 |
-| 新检测算法 | `AnomalyDetectionStrategy` | 实现LSTM检测 |
-| 新预测模型 | `ForecastModel` | 实现XGBoost预测 |
-| 新通知渠道 | `NotificationChannel` | 实现企业微信通知 |
-
----
-
-## 附录
-
-### A. 常用命令
+### 4. 版本发布流程
 
 ```bash
-# 格式化代码
-make format
+# 1. 更新版本号
+# 修改 src/api/__init__.py
+__version__ = "v1.0.0-beta3"
 
-# 运行测试
-make test
+# 2. 更新CHANGELOG.md
 
-# 构建Docker镜像
-make build
+# 3. 创建Git标签
+git tag -a v1.0.0-beta3 -m "Release v1.0.0-beta3"
+git push origin v1.0.0-beta3
 
-# 部署到开发环境
-make deploy-dev
-
-# 部署到生产环境
-make deploy-prod
+# 4. 构建Docker镜像
+docker build -t miaota:v1.0.0-beta3 .
+docker push miaota:v1.0.0-beta3
 ```
-
-### B. 推荐阅读
-
-- [FastAPI 文档](https://fastapi.tiangolo.com/)
-- [Pydantic 文档](https://docs.pydantic.dev/)
-- [SQLAlchemy 文档](https://docs.sqlalchemy.org/)
-- [scikit-learn 文档](https://scikit-learn.org/)
 
 ---
 
-**文档版本**: v1.0.0-beta1  
-**最后更新**: 2026-03-26
+## 调试技巧
+
+### 1. 日志调试
+
+```python
+from src.utils.structured_logging import get_logger
+
+logger = get_logger("my_module")
+
+# 不同级别
+logger.debug("调试信息")
+logger.info("一般信息")
+logger.warning("警告")
+logger.error("错误")
+
+# 带额外字段
+logger.info(
+    "处理完成",
+    extra={"task_id": "123", "duration_ms": 150}
+)
+```
+
+### 2. 异步调试
+
+```python
+import asyncio
+import pdb
+
+async def debug_function():
+    # 设置断点
+    pdb.set_trace()
+    result = await some_async_operation()
+    return result
+
+# 运行
+asyncio.run(debug_function())
+```
+
+### 3. API调试
+
+```bash
+# 使用httpie
+http :8000/v2/diagnosis/analyze \
+  Authorization:"Bearer token" \
+  symptoms="测试" \
+  sensor_data:='{"temp": 50}'
+
+# 或使用curl配合jq
+curl -s http://localhost:8000/v2/diagnosis/experts | jq
+```
+
+---
+
+## 常见问题
+
+### Q1: 如何添加新的API端点？
+
+```python
+# 1. 在routers/创建或修改文件
+# src/api/routers/my_feature.py
+
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/my-feature", tags=["我的功能"])
+
+@router.get("/")
+async def get_items():
+    return {"items": []}
+
+# 2. 在main.py注册
+from src.api.routers import my_feature
+app.include_router(my_feature.router)
+```
+
+### Q2: 如何扩展专家Agent能力？
+
+参考 [V2新模块开发](#v2新模块开发) 中的"添加新专家Agent"部分。
+
+### Q3: 如何调试多智能体诊断？
+
+```python
+# 开启详细日志
+import logging
+logging.getLogger("multi_agent_diagnosis").setLevel(logging.DEBUG)
+
+# 查看专家意见详情
+engine = MultiAgentDiagnosisEngine()
+result = await engine.diagnose(...)
+for op in result.expert_opinions:
+    print(f"{op.expert_name}: {op.root_cause} ({op.confidence})")
+    print(f"  推理: {op.reasoning}")
+```
+
+---
+
+## 🙏 致谢
+
+感谢以下开源项目为开发提供支持：
+
+### 开发工具
+- [pytest](https://pytest.org/) - Python测试框架
+- [Black](https://black.readthedocs.io/) - 代码格式化
+- [isort](https://pycqa.github.io/isort/) - 导入排序
+- [Flake8](https://flake8.pycqa.org/) - 代码检查
+- [MyPy](https://mypy.readthedocs.io/) - 类型检查
+- [pre-commit](https://pre-commit.com/) - Git钩子
+
+### 测试与CI
+- [pytest-asyncio](https://pytest-asyncio.readthedocs.io/) - 异步测试
+- [pytest-cov](https://pytest-cov.readthedocs.io/) - 覆盖率
+- [Locust](https://locust.io/) - 压力测试
+
+### 代码贡献
+感谢所有为开源社区做出贡献的开发者！
+
+---
+
+**版本**: v1.0.0-beta2 (MiroFish) | **最后更新**: 2026-03-27

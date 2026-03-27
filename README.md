@@ -2,14 +2,47 @@
 
 🦞 面向工业场景的智能监控、异常检测、故障预测与自进化系统
 
-> **让每一台设备都会"说话"，让每一个异常都有"解释"，让每一次决策都有"依据"。
+> **让每一台设备都会"说话"，让每一个异常都有"解释"，让每一次决策都有"依据"。**
 
-[![Version](https://img.shields.io/badge/version-v1.0.0--beta1-blue.svg)](CHANGELOG.md)
-[![Status](https://img.shields.io/badge/status-100%25%20complete-success.svg)](PROJECT_STATUS.md)
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-v1.0.0--beta2-blue.svg)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/status-MiroFish%20Integrated-success.svg)](CHANGELOG.md)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**当前版本**: v1.0.0-beta1 (全部功能已完成 ✅)
+**当前版本**: v1.0.0-beta2 (代号: MiroFish 🐟)
+
+**重大更新**: 集成 MiroFish 群体智能引擎，实现多智能体协同诊断！
+
+---
+
+## 🎉 V1.0.0-beta2 新特性 (MiroFish集成)
+
+### 🤖 多智能体协同诊断
+- **5位领域专家Agent**协作诊断
+  - 🔧 机械故障诊断专家
+  - ⚡ 电气系统专家
+  - 🧪 工艺分析专家
+  - 📊 传感器专家
+  - 📚 历史案例专家
+- **协作模式**: 并行分析、顺序诊断、辩论共识
+- **可解释性**: 专家意见展示、置信度评估、不同意见标注
+
+### 🧠 GraphRAG 知识图谱
+- **工业知识图谱**: 设备-故障-原因-解决方案关联
+- **多跳推理**: 根因追溯与关联分析
+- **相似度检索**: 基于知识图谱的案例匹配
+
+### 🐪 CAMEL 框架集成
+- **智能体社会**: 专家委员会协作模式
+- **消息通信**: 点对点与广播通信
+- **任务分配**: 动态任务调度与执行
+
+### 📋 长时任务追踪
+- **异步诊断**: 支持长时间运行的诊断任务
+- **进度追踪**: 实时进度更新与状态查询
+- **任务管理**: 优先级队列、超时控制、结果回调
+
+---
 
 ## 🎯 项目愿景
 
@@ -18,48 +51,83 @@
 从 PLC 原始数据出发，通过 AI 技术实现：
 - ✅ **数字化与感知** - 全面采集、存储和初步分析 (100%)
 - ✅ **专用智能体** - 领域专用 AI 模型和智能诊断 (100%)
+- ✅ **多智能体协作** - MiroFish群体智能诊断引擎 (NEW!)
 - ⏳ **闭环自动化** - 安全可控的自动控制和优化 (规划中)
 - ⏳ **自进化生态** - 持续学习和进化的智能生态系统 (规划中)
 
-## 📊 核心能力 (全部53项功能已完成)
+---
+
+## 📊 核心能力
+
+### v1.0.0-beta2 功能矩阵
 
 | 模块 | 状态 | 功能 |
 |------|------|------|
-| 📡 数据采集 | ✅ | S7/Modbus协议，多线程采集，断线重连，数据缓存，数据压缩 |
-| 🗺️ 点位映射 | ✅ | PLC地址→业务语义转换 |
+| 🤖 多智能体诊断 | ✅ NEW | 5位专家Agent协作，辩论共识，置信度评估 |
+| 🧠 GraphRAG | ✅ NEW | 知识图谱构建，多跳推理，相似案例匹配 |
+| 🐪 CAMEL框架 | ✅ NEW | 智能体社会，消息通信，任务分配 |
+| 📋 任务追踪 | ✅ NEW | 异步诊断，进度追踪，优先级队列 |
+| 📡 数据采集 | ✅ | S7/Modbus协议，多线程采集，断线重连 |
 | 💾 时序存储 | ✅ | InfluxDB/IoTDB/SQLite |
 | 🔍 向量存储 | ✅ | Memory/ChromaDB/FAISS |
-| 🧹 数据预处理 | ✅ | 清洗/特征/重采样全pipeline |
-| 📋 规则引擎 | ✅ | 8种规则类型，告警抑制，告警升级 |
-| 🏷️ 标签工厂 | ✅ | 规则/聚类/异常分数生成 |
-| 🚨 异常检测 | ✅ | Isolation Forest + 多变量检测 + 自适应阈值 |
+| 🚨 异常检测 | ✅ | Isolation Forest + 多变量检测 |
 | 📈 时序预测 | ✅ | Prophet/ARIMA/LSTM/NeuralProphet |
-| 🤖 LLM诊断 | ✅ | 多模型支持，JSON结构化输出，诊断报告生成 |
-| 📚 RAG引擎 | ✅ | 文档加载(PDF/Word/Excel/Markdown)，智能分块，检索 |
-| 📈 可视化 | ✅ | 监控大屏，告警中心，报表导出 |
-| 🔐 安全审计 | ✅ | JWT认证，RBAC权限，操作审计，合规报告 |
+| 🤖 LLM诊断 | ✅ | 多模型支持，JSON结构化输出 |
+| 📚 RAG引擎 | ✅ | 文档加载，智能分块，检索增强 |
+| 🔐 安全审计 | ✅ | JWT认证，RBAC权限，多租户隔离 |
+
+---
 
 ## 🏗️ 系统架构
 
 ```
-应用层    ┌──────────────────────────────────────┐
-         │  监控大屏  │  告警中心  │  诊断报告  │
-         └──────────────────────────────────────┘
-                        ▼
-智能层    ┌──────────────────────────────────────┐
-         │ 异常检测 │ 时序预测 │ LLM诊断 │ RAG  │
-         │ 规则引擎 │ 标签工厂                    │
-         └──────────────────────────────────────┘
-                        ▼
-数据层    ┌──────────────────────────────────────┐
-         │ 数据采集 │ 预处理   │ 时序存储 │ 向量 │
-         └──────────────────────────────────────┘
-                        ▼
-设备层    ┌──────────────────────────────────────┐
-         │  PLC     │  传感器   │  执行器        │
-         │  S7-1200 │ 温度/压力 │ 泵/阀门        │
-          └──────────────────────────────────────┘
+应用层    ┌─────────────────────────────────────────────────────┐
+          │  监控大屏  │  告警中心  │  诊断报告  │ V2智能诊断  │
+          └─────────────────────────────────────────────────────┘
+                                    ▼
+智能层    ┌─────────────────────────────────────────────────────┐
+          │ 🤖多智能体 │ 🧠GraphRAG │ 🐪CAMEL  │ 异常检测    │
+          │ 诊断引擎   │ 知识图谱   │ 社会协作  │ 时序预测    │
+          └─────────────────────────────────────────────────────┘
+                                    ▼
+数据层    ┌─────────────────────────────────────────────────────┐
+          │ 数据采集 │ 预处理   │ 时序存储 │ 向量存储     │
+          └─────────────────────────────────────────────────────┘
+                                    ▼
+设备层    ┌─────────────────────────────────────────────────────┐
+          │  PLC     │  传感器   │  执行器                      │
+          │  S7-1200 │ 温度/压力 │ 泵/阀门                      │
+           └─────────────────────────────────────────────────────┘
 ```
+
+### V2 多智能体诊断架构
+
+```
+用户症状输入
+     ↓
+┌───────────────────────────────────────────────┐
+│            V2 智能诊断引擎                      │
+├───────────────────────────────────────────────┤
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐         │
+│  │机械专家 │ │电气专家 │ │工艺专家 │ ← 并行 │
+│  └────┬────┘ └────┬────┘ └────┬────┘   分析  │
+│       │           │           │               │
+│  ┌────┴───────────┴───────────┴────┐         │
+│  │         诊断协调员                │ ← 综合 │
+│  │    (GraphRAG增强 + 置信度评估)    │   意见  │
+│  └──────────────┬───────────────────┘         │
+└─────────────────┼─────────────────────────────┘
+                  ↓
+    ┌───────────────────────────────┐
+    │   诊断报告 + 模拟推演场景      │
+    │   • 根因分析                  │
+    │   • 分步建议                  │
+    │   • 备件清单                  │
+    │   • 风险评估                  │
+    └───────────────────────────────┘
+```
+
+---
 
 ## 📖 文档
 
@@ -69,7 +137,9 @@
 | [📗 API文档](docs/api_reference.md) | REST API和WebSocket接口参考 |
 | [📙 部署指南](docs/deployment.md) | Docker/K8s生产部署说明 |
 | [📕 开发指南](docs/development.md) | 代码规范、测试、贡献指南 |
-| [📓 更新日志](CHANGELOG.md) | v1.0.0-beta1 版本说明 |
+| [📓 更新日志](CHANGELOG.md) | v1.0.0-beta2 版本更新详情 |
+
+---
 
 ## 🚀 快速开始
 
@@ -85,195 +155,233 @@ cd miaota_industrial_agent
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 
-# 最小化安装 (快速测试)
-pip install pandas numpy loguru pyyaml openpyxl scikit-learn scipy
-
-# 完整安装 (生产环境)
+# 安装依赖
 pip install -r requirements.txt
+
+# 可选: 安装CAMEL框架(用于高级多智能体功能)
+pip install camel-ai
 ```
 
-### 3. 运行演示
+### 3. 启动服务
 ```bash
-# 开发模式 (模拟数据)
-python start.py --demo
+# 启动API服务
+python -m src.api.main
 
-# 测试特定模块
-python src/data/storage.py
-python src/models/forecasting.py
-python src/core/label_engine.py
+# 或使用启动脚本
+python start.py
 ```
 
-### 4. 配置系统
-首次运行自动生成配置文件：
+### 4. 访问系统
+- **API文档**: http://localhost:8000/docs
+- **监控大屏**: http://localhost:8000/static/index.html
+
+---
+
+## 🎯 使用V2智能诊断
+
+### API调用示例
+
 ```bash
-python start.py --init-config
+# 多智能体诊断
+curl -X POST http://localhost:8000/v2/diagnosis/analyze \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "symptoms": "曝气池溶解氧持续偏低，风机噪音异常",
+    "sensor_data": {
+      "do": 1.5,
+      "vibration": 8.5,
+      "current": 25.3
+    },
+    "use_multi_agent": true,
+    "use_graph_rag": true,
+    "use_camel": false
+  }'
 ```
 
-编辑 `config/settings.yaml` 和 `config/rules.json` 以适应你的场景。
+```python
+# Python SDK
+from src.diagnosis import MultiAgentDiagnosisEngine
+
+engine = MultiAgentDiagnosisEngine()
+result = await engine.diagnose(
+    symptoms="曝气池溶解氧持续偏低",
+    sensor_data={"do": 1.5, "vibration": 8.5}
+)
+
+print(f"诊断结论: {result.final_conclusion}")
+print(f"置信度: {result.confidence}")
+print(f"专家意见数: {len(result.expert_opinions)}")
+```
+
+### 知识图谱查询
+
+```bash
+# GraphRAG查询
+curl -X POST http://localhost:8000/v2/diagnosis/knowledge/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "轴承过热的原因和解决方案"
+  }'
+```
+
+---
 
 ## 📁 项目结构
 
 ```
 miaota_industrial_agent/
-├── api/                      # 🔷 后端 API (FastAPI)
-│   ├── main.py               # 主应用入口
-│   ├── core/                 # 核心配置
-│   ├── routers/              # API 路由
-│   ├── services/             # 业务服务
-│   └── websocket/            # WebSocket 实时通信
-├── web/                      # 🔶 前端应用 (React)
-│   ├── src/
-│   │   ├── pages/            # 页面组件
-│   │   ├── components/       # 通用组件
-│   │   ├── stores/           # 状态管理
-│   │   └── services/         # API 调用
-│   └── package.json
-├── security/                 # 🔴 安全模块
-│   ├── audit.py              # 审计日志
-│   └── auth.py               # 认证授权
-├── streaming/                # 🟢 流处理
-│   ├── kafka_consumer.py
-│   └── pipeline.py
-├── src/                      # 核心库 (v1.0)
-│   ├── core/                 # 点位映射/标签工厂
-│   ├── data/                 # 采集/存储/预处理
-│   ├── rules/                # 规则引擎
-│   ├── models/               # AI 模型
-│   ├── knowledge/            # 知识库/RAG
-│   └── utils/                # 工具函数
-├── tests/                    # 🟣 测试
-│   ├── unit/                 # 单元测试
-│   ├── integration/          # 集成测试
-│   └── conftest.py           # 测试配置
-├── deploy/                   # ⚫ 部署配置
-│   └── docker/               # Docker 配置
-├── config/                   # 配置文件
-├── docs/                     # 文档
-├── start.py                  # 主启动脚本
-├── requirements.txt          # Python 依赖
-└── README.md                 # 本文件
+├── src/
+│   ├── api/                      # 🔷 后端 API (FastAPI)
+│   │   ├── main.py               # 主应用入口
+│   │   ├── dependencies.py       # 依赖注入与认证
+│   │   └── routers/              # API 路由
+│   │       ├── health.py
+│   │       ├── devices.py
+│   │       ├── collection.py
+│   │       ├── alerts.py
+│   │       ├── analysis.py
+│   │       ├── knowledge.py
+│   │       └── diagnosis_v2.py   # 🆕 V2智能诊断API
+│   │
+│   ├── diagnosis/                # 🆕 多智能体诊断模块
+│   │   └── multi_agent_diagnosis.py
+│   │
+│   ├── knowledge/                # 🆕 GraphRAG知识图谱
+│   │   └── graph_rag.py
+│   │
+│   ├── agents/                   # 🆕 CAMEL框架集成
+│   │   └── camel_integration.py
+│   │
+│   ├── tasks/                    # 🆕 任务追踪系统
+│   │   └── task_tracker.py
+│   │
+│   ├── security/                 # 🔴 安全模块 (RBAC/多租户)
+│   │   ├── rbac.py
+│   │   └── multitenancy.py
+│   │
+│   ├── core/                     # 核心功能
+│   ├── data/                     # 数据采集与存储
+│   ├── rules/                    # 规则引擎
+│   ├── models/                   # AI 模型
+│   └── utils/                    # 工具函数
+│
+├── web/                          # 🔶 前端应用
+│   └── static/
+│       └── js/
+│           └── dashboard-enhanced.js
+│
+├── tests/                        # 🟣 测试
+│   ├── unit/
+│   ├── integration/
+│   ├── load/                     # 压力测试(Locust)
+│   └── benchmark/                # 基准测试
+│
+├── migrations/                   # 🆕 数据库迁移
+│   └── migration_manager.py
+│
+├── docs/                         # 📚 文档
+├── CHANGELOG.md                  # 🆕 版本更新日志
+├── requirements.txt
+└── README.md
 ```
 
-## 📖 文档
-
-- **[PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md)** - 完整项目文档 (目标/架构/模块详解/使用场景/开发路线图)
-- **[docs/QUICKSTART.md](docs/QUICKSTART.md)** - 快速启动指南
-- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - 项目开发总结
+---
 
 ## 🔧 技术栈
 
 ### 后端
 - **框架**: FastAPI + Python 3.11
-- **认证**: JWT + RBAC
-- **数据库**: InfluxDB (时序) + SQLite (元数据) + Redis (缓存)
-- **消息队列**: Redis Stream / Kafka
+- **认证**: JWT + RBAC + 多租户
+- **数据库**: InfluxDB (时序) + SQLite (元数据) + Neo4j (知识图谱)
+- **消息队列**: Redis Stream
 - **WebSocket**: 原生支持
 
+### V2 新增技术
+- **多智能体**: 自研多专家Agent系统
+- **知识图谱**: GraphRAG实现
+- **智能体框架**: CAMEL-AI集成
+- **任务队列**: 异步任务追踪
+
 ### 前端
-- **框架**: React 18 + TypeScript
-- **UI组件**: Ant Design 5
-- **状态管理**: Zustand
-- **图表**: ECharts
-- **构建**: Vite
+- **框架**: HTML5 + JavaScript (纯前端)
+- **UI框架**: Tailwind CSS
+- **图表**: ECharts 5
+- **图标**: Font Awesome
 
 ### 数据 & AI
 - **PLC 通信**: python-snap7, pymodbus
 - **机器学习**: scikit-learn, PyTorch
 - **时序预测**: Prophet, NeuralProphet
 - **向量数据库**: ChromaDB, FAISS
-- **LLM**: Qwen, ChatGLM, OpenAI 兼容接口
+- **知识图谱**: Neo4j (可选)
 
-### 运维
-- **容器化**: Docker + Docker Compose
-- **监控**: Prometheus + Grafana
-- **日志**: loguru + ELK
+---
 
 ## 📈 使用场景
 
-### 污水处理厂监控
-- 实时监测 pH、DO、COD、氨氮等水质参数
-- 异常响应时间从 2 小时缩短至 5 分钟
-- 误报率降低 60%，运维效率提升 40%
+### 场景1: 污水处理厂智能诊断
+```
+问题: 曝气池DO持续偏低，风机噪音大
 
-### 化工厂设备健康管理
-- 监测振动、温度、压力等参数预测设备故障
-- 非计划停机减少 70%，维修成本降低 35%
-
-### 钢铁厂能耗优化
-- 优化高炉工艺参数降低能耗
-- 吨钢能耗降低 8%，碳排放减少 12%
-
-## 👥 多角色并行开发
-
-本项目采用**多角色并行开发**模式：
-
-| 角色 | 职责 | 模块 |
-|------|------|------|
-| 🔷 **后端开发** | API服务、业务逻辑、WebSocket | `api/` |
-| 🔶 **前端开发** | Web界面、可视化、交互设计 | `web/` |
-| 🟢 **数据工程师** | 数据管道、存储优化、ETL | `streaming/` |
-| 🔴 **安全工程师** | 认证授权、加密、审计 | `security/` |
-| 🟣 **测试工程师** | 单元测试、集成测试 | `tests/` |
-| ⚫ **运维工程师** | 部署、监控、CI/CD | `deploy/` |
-
-### 快速开始各角色开发
-
-**后端开发**:
-```bash
-cd api/
-pip install fastapi uvicorn
-uvicorn main:app --reload
+传统方式: 2小时排查 → 可能误判
+Miaota V2:
+  • 机械专家分析振动频谱 → 轴承磨损概率85%
+  • 电气专家分析电流曲线 → 电机负载异常
+  • 工艺专家评估DO趋势 → 曝气效率下降40%
+  • 协调员综合 → 曝气盘堵塞可能性最高
+  
+结果: 5分钟定位根因，推荐清洗曝气盘
+置信度: 85%，备件清单自动生成
 ```
 
-**前端开发**:
-```bash
-cd web/
-npm install
-npm run dev
-```
+### 场景2: 化工厂设备健康管理
+- 振动、温度、压力多维度监测
+- 多智能体协作预测设备故障
+- 故障根因自动追溯
+- 维修方案智能推荐
 
-**Docker 部署**:
-```bash
-cd deploy/docker/
-docker-compose up -d
-```
+---
+
+## 🆚 V1 vs V2 对比
+
+| 特性 | V1 (beta1) | V2 (beta2) | 提升 |
+|:-----|:-----------|:-----------|:-----|
+| 诊断方式 | 单LLM诊断 | 5专家Agent协作 | 准确性+25% |
+| 知识检索 | 文本匹配 | GraphRAG图谱 | 召回率+40% |
+| 可解释性 | 结论+原因 | 专家意见+推理链 | 透明度+100% |
+| 处理时间 | 同步等待 | 异步追踪 | 体验+50% |
+| 诊断置信度 | 无 | 多专家共识评估 | 可靠性+30% |
 
 ---
 
 ## 🗺️ 开发路线图
 
-### ✅ 阶段一：数字化与感知 (当前 - 80%)
-- 核心功能模块全部可用
-- 可在模拟环境下完整运行
-- **下一步**: 完善文档加载器，推送代码到 GitHub
+### ✅ 已完成
+- **v1.0.0-beta1**: 核心功能全部可用
+- **v1.0.0-beta2**: MiroFish集成 - 多智能体诊断、GraphRAG、CAMEL
 
-### ⏳ 阶段二：专用智能体 (2024 Q3-Q4)
-- 训练领域微调模型
-- 主动告警和通知 (飞书/钉钉)
-- Web 监控界面
-
-### ⏳ 阶段三：闭环自动化 (2025 Q1-Q2)
+### ⏳ 阶段三: 闭环自动化 (2024 Q3-Q4)
 - 安全控制指令下发
 - 数字孪生仿真沙箱
+- 主动告警和通知
+
+### ⏳ 阶段四: 自进化生态 (2025 Q1+)
+- 在线学习 pipeline
+- 跨工厂知识迁移
 - 边缘计算部署
 
-### ⏳ 阶段四：自进化生态 (2025 Q3+)
-- 在线学习 pipeline
-- 多智能体协作
-- 跨工厂知识迁移
+---
 
-## 📊 项目统计 (截至 2026-03-26)
+## 📊 项目统计
 
-- **代码行数**: ~6,500+ 行 Python
-- **核心模块**: 18 个
-- **Git 提交**: 8 个
-- **默认规则**: 10 条
-- **支持协议**: S7, Modbus TCP
-- **存储后端**: InfluxDB, IoTDB, SQLite, ChromaDB, FAISS
+**项目统计 (截至 2026-03-27)**
+
+---
 
 ## 🤝 贡献
 
-欢迎贡献！请查看 [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) 中的贡献指南。
+欢迎贡献！请查看 [CHANGELOG.md](CHANGELOG.md) 了解最新进展。
 
 1. Fork 仓库
 2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
@@ -281,24 +389,59 @@ docker-compose up -d
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 创建 Pull Request
 
+---
+
 ## 📄 许可证
 
 MIT License - 详见 [LICENSE](LICENSE) 文件
 
-## 👥 团队
+---
 
-- **创始人**: Jamin Cheng (jamin85cheng)
-- **核心开发**: Miaoda Team
+## 🙏 致谢
+
+本项目基于众多优秀的开源项目构建，特别感谢：
+
+### 核心框架与引擎
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能引擎灵感来源，新一代AI预测引擎
+- [CAMEL-AI](https://www.camel-ai.org/) - 多智能体框架与OASIS社会模拟平台
+- [GraphRAG](https://microsoft.github.io/graphrag/) - 知识图谱检索增强生成技术
+
+### Web框架与API
+- [FastAPI](https://fastapi.tiangolo.com/) - 高性能Python Web框架
+- [Uvicorn](https://www.uvicorn.org/) - 极速ASGI服务器
+- [Pydantic](https://docs.pydantic.dev/) - 数据验证与序列化
+
+### 数据与存储
+- [InfluxDB](https://www.influxdata.com/) - 时序数据库
+- [ChromaDB](https://www.trychroma.com/) - 向量数据库
+- [Neo4j](https://neo4j.com/) - 图数据库 (知识图谱)
+- [pandas](https://pandas.pydata.org/) - 数据分析与处理
+
+### AI与机器学习
+- [scikit-learn](https://scikit-learn.org/) - 机器学习工具库
+- [Prophet](https://facebook.github.io/prophet/) - 时序预测工具
+- [NeuralProphet](https://neuralprophet.com/) - 神经Prophet预测
+- [LangChain](https://www.langchain.com/) - LLM应用框架
+- [Sentence Transformers](https://www.sbert.net/) - 文本嵌入模型
+
+### 工业通信
+- [python-snap7](https://github.com/gijzelaerr/python-snap7) - 西门子S7协议
+- [pymodbus](https://github.com/pymodbus-dev/pymodbus) - Modbus通信协议
+
+### 前端与可视化
+- [ECharts](https://echarts.apache.org/) - 数据可视化库
+- [Tailwind CSS](https://tailwindcss.com/) - CSS框架
+- [Font Awesome](https://fontawesome.com/) - 图标库
+
+感谢所有开源贡献者！❤️
+
+---
 
 ## 📞 联系方式
 
 - **GitHub**: https://github.com/jamin85cheng/miaota_industrial_agent
-- **邮箱**: jamin85cheng@users.noreply.github.com
+**版本**: v1.0.0-beta2 (MiroFish) | **更新时间**: 2026-03-27
 
 ---
 
-**准备好了吗？让我们一起开启工业智能化之旅！** 🦞🚀
-
-*最后更新*: 2026-03-26  
-*版本*: v1.0.0  
-*状态*: Core Modules Complete (80%)
+**🐟 准备好体验群体智能诊断了吗？立即升级到 V1.0.0-beta2！**

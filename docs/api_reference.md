@@ -1,732 +1,525 @@
-# Miaota Industrial Agent - API 参考文档
+# API 参考文档
 
-> **版本**: v1.0.0-beta1  
-> **Base URL**: `http://localhost:8000/api/v1`  
-> **Content-Type**: `application/json`
+**版本**: v1.0.0-beta2 (MiroFish)
 
----
-
-## 目录
-
-1. [认证](#1-认证)
-2. [数据API](#2-数据api)
-3. [告警API](#3-告警api)
-4. [规则API](#4-规则api)
-5. [诊断API](#5-诊断api)
-6. [预测API](#6-预测api)
-7. [知识库API](#7-知识库api)
-8. [报表API](#8-报表api)
-9. [系统API](#9-系统api)
+**基础URL**: `http://localhost:8000`
 
 ---
 
-## 1. 认证
+## 🔐 认证
 
-### 1.1 登录
+所有API（除了健康检查）都需要认证。
 
-```http
-POST /auth/login
-Content-Type: application/json
+### 方式1: Bearer Token
+```
+Authorization: Bearer <your_access_token>
+```
 
+### 方式2: API Key
+```
+X-API-Key: <your_api_key>
+```
+
+---
+
+## 📋 API 端点概览
+
+### V1 API (基础功能)
+| 端点 | 说明 |
+|------|------|
+| `GET /health` | 健康检查 |
+| `GET /devices` | 设备列表 |
+| `POST /devices` | 创建设备 |
+| `GET /collection/status` | 采集状态 |
+| `POST /collection/data/query` | 数据查询 |
+| `GET /alerts` | 告警列表 |
+| `POST /analysis/anomaly` | 异常检测 |
+| `POST /knowledge/search` | 知识搜索 |
+
+### V2 API (新增 - MiroFish集成)
+| 端点 | 说明 |
+|------|------|
+| `POST /v2/diagnosis/analyze` | 多智能体诊断 |
+| `GET /v2/diagnosis/task/{id}` | 任务状态查询 |
+| `POST /v2/diagnosis/knowledge/query` | GraphRAG查询 |
+| `GET /v2/diagnosis/knowledge/graph` | 知识图谱 |
+| `GET /v2/diagnosis/experts` | 专家列表 |
+| `GET /v2/diagnosis/society/status` | CAMEL社会状态 |
+
+---
+
+## 🔥 V2 API 详解
+
+### 多智能体诊断
+
+#### POST /v2/diagnosis/analyze
+
+执行多智能体协同诊断。
+
+**请求体**:
+```json
 {
-  "username": "admin",
-  "password": "your_password"
+  "symptoms": "曝气池溶解氧持续偏低，风机噪音异常",
+  "device_id": "DEV_001",
+  "sensor_data": {
+    "temperature": 45.2,
+    "pressure": 5.8,
+    "vibration": 8.5,
+    "current": 25.3
+  },
+  "use_multi_agent": true,
+  "use_graph_rag": true,
+  "use_camel": false,
+  "priority": "high"
 }
 ```
 
-**响应**:
+**参数说明**:
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| symptoms | string | 是 | 故障症状描述 |
+| device_id | string | 否 | 相关设备ID |
+| sensor_data | object | 否 | 传感器数据 |
+| use_multi_agent | boolean | 否 | 使用多智能体诊断 |
+| use_graph_rag | boolean | 否 | 使用知识图谱增强 |
+| use_camel | boolean | 否 | 使用CAMEL社会协作 |
+| priority | string | 否 | 优先级: critical/high/normal/low |
 
+**响应** (同步模式):
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer",
-  "expires_in": 3600,
-  "user": {
-    "id": "user_001",
-    "username": "admin",
-    "role": "admin"
+  "diagnosis_id": "MAD_ABC123DEF456",
+  "status": "completed",
+  "message": "多智能体诊断完成",
+  "result": {
+    "diagnosis_id": "MAD_ABC123DEF456",
+    "symptoms": "曝气池溶解氧持续偏低，风机噪音异常",
+    "final_conclusion": "曝气盘部分堵塞，导致曝气效率下降40%",
+    "confidence": 0.85,
+    "consensus_level": 0.8,
+    "expert_opinions": [
+      {
+        "expert_type": "mechanical",
+        "expert_name": "机械故障诊断专家",
+        "confidence": 0.82,
+        "root_cause": "曝气盘部分堵塞，导致曝气效率下降40%",
+        "evidence": [
+          "振动频谱分析显示异常峰值",
+          "温度梯度变化符合机械磨损模式"
+        ],
+        "suggestions": [
+          "检查并清洗曝气盘",
+          "检查风机叶轮是否平衡"
+        ],
+        "reasoning": "通过振动频谱分析，发现..."
+      },
+      {
+        "expert_type": "electrical",
+        "expert_name": "电气系统专家",
+        "confidence": 0.75,
+        "root_cause": "电机绝缘老化，电流不平衡度超过15%",
+        ...
+      }
+    ],
+    "dissenting_views": [],
+    "recommended_actions": [
+      {
+        "action": "清洗曝气盘",
+        "priority": "critical",
+        "estimated_time": "2-4小时",
+        "requires_shutdown": true
+      }
+    ],
+    "spare_parts": [
+      {
+        "name": "微孔曝气盘",
+        "spec": "Φ215mm",
+        "quantity": 5
+      }
+    ],
+    "simulation_scenarios": [
+      {
+        "scenario": "及时处理",
+        "outcome": "预计4小时内恢复正常",
+        "risk_level": "low"
+      }
+    ]
   }
 }
 ```
 
-### 1.2 刷新Token
-
-```http
-POST /auth/refresh
-Authorization: Bearer {access_token}
+**响应** (异步模式 - use_camel=true):
+```json
+{
+  "diagnosis_id": "TASK_XYZ789",
+  "status": "processing",
+  "message": "CAMEL协作诊断已启动，请查询任务状态获取结果",
+  "task_id": "TASK_XYZ789"
+}
 ```
 
 ---
 
-## 2. 数据API
+#### GET /v2/diagnosis/task/{task_id}
 
-### 2.1 获取实时数据
-
-```http
-GET /data/realtime?tags=DO_CONCENTRATION,PH_VALUE
-```
-
-**参数**:
-
-| 参数 | 类型 | 必填 | 描述 |
-|------|------|------|------|
-| tags | string | 是 | 点位标签，逗号分隔 |
+查询诊断任务状态（用于异步诊断）。
 
 **响应**:
-
 ```json
 {
-  "timestamp": "2024-01-15T08:30:00Z",
-  "data": [
+  "task_id": "TASK_XYZ789",
+  "status": "completed",
+  "progress": {
+    "current_step": 5,
+    "total_steps": 5,
+    "current_action": "诊断完成",
+    "percentage": 100,
+    "estimated_remaining_seconds": null
+  },
+  "result": { ... },
+  "error": null,
+  "duration_seconds": 12.5
+}
+```
+
+---
+
+### GraphRAG 知识图谱
+
+#### POST /v2/diagnosis/knowledge/query
+
+使用GraphRAG查询工业知识。
+
+**请求体**:
+```json
+{
+  "query": "轴承过热的原因和解决方案"
+}
+```
+
+**响应**:
+```json
+{
+  "query": "轴承过热的原因和解决方案",
+  "retrieved_context": [
     {
-      "tag": "DO_CONCENTRATION",
-      "value": 3.5,
-      "unit": "mg/L",
-      "quality": "good",
-      "timestamp": "2024-01-15T08:30:00Z"
+      "type": "subgraph",
+      "entity": {
+        "id": "FAULT_002",
+        "name": "轴承过热",
+        "entity_type": "fault",
+        "description": "轴承温度超过正常范围"
+      },
+      "subgraph": {
+        "nodes": [...],
+        "edges": [...]
+      },
+      "relevance_score": 0.95
+    }
+  ],
+  "answer": "根据知识图谱分析，轴承过热涉及...",
+  "sources": ["FAULT_002", "CAUSE_002", "SOL_002"]
+}
+```
+
+---
+
+#### GET /v2/diagnosis/knowledge/graph
+
+获取知识图谱数据。
+
+**查询参数**:
+- `entity_id`: 可选，指定中心实体
+- `depth`: 可选，子图深度（默认2）
+
+**响应** (子图查询):
+```json
+{
+  "nodes": [
+    {
+      "id": "DEV_001",
+      "name": "曝气机",
+      "entity_type": "device",
+      "attributes": {"type": "离心风机", "power": "15kW"},
+      "description": "污水处理曝气设备"
     },
     {
-      "tag": "PH_VALUE",
-      "value": 7.2,
-      "unit": "-",
-      "quality": "good",
-      "timestamp": "2024-01-15T08:30:00Z"
-    }
-  ]
-}
-```
-
-### 2.2 查询历史数据
-
-```http
-GET /data/history?tag=DO_CONCENTRATION&start=2024-01-01T00:00:00Z&end=2024-01-02T00:00:00Z&interval=1m
-```
-
-**参数**:
-
-| 参数 | 类型 | 必填 | 描述 |
-|------|------|------|------|
-| tag | string | 是 | 点位标签 |
-| start | datetime | 是 | 开始时间 (ISO 8601) |
-| end | datetime | 是 | 结束时间 (ISO 8601) |
-| interval | string | 否 | 聚合间隔 (1s/1m/1h/1d) |
-| aggregation | string | 否 | 聚合方式 (mean/max/min/sum) |
-
-**响应**:
-
-```json
-{
-  "tag": "DO_CONCENTRATION",
-  "count": 1440,
-  "interval": "1m",
-  "data": [
-    {
-      "timestamp": "2024-01-01T00:00:00Z",
-      "value": 3.52,
-      "min": 3.1,
-      "max": 3.9,
-      "count": 60
-    }
-  ]
-}
-```
-
-### 2.3 获取点位列表
-
-```http
-GET /data/tags
-```
-
-**响应**:
-
-```json
-{
-  "tags": [
-    {
-      "tag": "DO_CONCENTRATION",
-      "description": "溶解氧浓度",
-      "unit": "mg/L",
-      "type": "float",
-      "min": 0,
-      "max": 10
+      "id": "FAULT_001",
+      "name": "曝气不足",
+      "entity_type": "fault",
+      ...
     }
   ],
-  "total": 25
-}
-```
-
----
-
-## 3. 告警API
-
-### 3.1 获取告警列表
-
-```http
-GET /alerts?status=active&severity=critical&limit=50
-```
-
-**参数**:
-
-| 参数 | 类型 | 必填 | 描述 |
-|------|------|------|------|
-| status | string | 否 | 状态 (active/resolved/acknowledged) |
-| severity | string | 否 | 级别 (info/warning/critical/emergency) |
-| start_time | datetime | 否 | 开始时间 |
-| end_time | datetime | 否 | 结束时间 |
-| limit | int | 否 | 返回数量 (默认50) |
-| offset | int | 否 | 偏移量 |
-
-**响应**:
-
-```json
-{
-  "total": 156,
-  "limit": 50,
-  "offset": 0,
-  "alerts": [
+  "edges": [
     {
-      "alert_id": "ALT_001",
-      "rule_id": "RULE_001",
-      "rule_name": "缺氧异常",
-      "severity": "critical",
-      "status": "active",
-      "message": "溶解氧浓度过低: 1.2 mg/L",
-      "tag": "DO_CONCENTRATION",
-      "value": 1.2,
-      "threshold": 2.0,
-      "triggered_at": "2024-01-15T08:30:00Z",
-      "acknowledged_by": null,
-      "acknowledged_at": null
+      "source": "DEV_001",
+      "target": "FAULT_001",
+      "relation": "manifests_as"
     }
   ]
 }
 ```
 
-### 3.2 确认告警
+---
 
-```http
-POST /alerts/{alert_id}/acknowledge
-Content-Type: application/json
+### 专家与CAMEL社会
 
-{
-  "user": "张工",
-  "comment": "已安排现场检查"
-}
-```
+#### GET /v2/diagnosis/experts
 
-### 3.3 获取告警统计
-
-```http
-GET /alerts/statistics?period=24h
-```
+获取可用的专家Agent列表。
 
 **响应**:
-
 ```json
 {
-  "period": "24h",
-  "total_alerts": 45,
-  "by_severity": {
-    "critical": 5,
-    "warning": 12,
-    "info": 28
-  },
-  "by_status": {
-    "active": 3,
-    "acknowledged": 15,
-    "resolved": 27
-  },
-  "mttr_minutes": 18.5
+  "total": 5,
+  "experts": [
+    {
+      "id": "EXP_MECH",
+      "name": "机械故障诊断专家",
+      "type": "mechanical",
+      "capabilities": ["振动分析", "轴承诊断", "动平衡"],
+      "description": "精通旋转机械故障诊断"
+    },
+    {
+      "id": "EXP_ELEC",
+      "name": "电气系统专家",
+      "type": "electrical",
+      "capabilities": ["电机诊断", "绝缘测试", "变频控制"],
+      "description": "精通电气系统诊断"
+    },
+    {
+      "id": "EXP_PROC",
+      "name": "工艺分析专家",
+      "type": "process",
+      "capabilities": ["工艺优化", "参数调节", "水质分析"],
+      "description": "精通污水处理工艺"
+    },
+    {
+      "id": "EXP_SENSOR",
+      "name": "传感器专家",
+      "type": "sensor",
+      "capabilities": ["仪表校准", "漂移诊断", "信号分析"],
+      "description": "精通工业仪表诊断"
+    },
+    {
+      "id": "EXP_HIST",
+      "name": "历史案例专家",
+      "type": "historical",
+      "capabilities": ["案例匹配", "模式识别", "知识推理"],
+      "description": "基于历史案例推理"
+    }
+  ]
 }
 ```
 
 ---
 
-## 4. 规则API
+#### GET /v2/diagnosis/society/status
 
-### 4.1 获取规则列表
-
-```http
-GET /rules
-```
+获取CAMEL社会运行状态。
 
 **响应**:
-
 ```json
 {
-  "rules": [
+  "society_id": "industrial_diagnosis_001",
+  "name": "工业故障诊断专家委员会",
+  "agent_count": 5,
+  "task_count": 12,
+  "active_tasks": 3,
+  "agents": [
     {
-      "rule_id": "RULE_001",
-      "name": "缺氧异常",
-      "type": "threshold",
-      "enabled": true,
+      "agent_id": "EXP_MECH_001",
+      "name": "机械专家",
+      "role": "expert",
+      "capabilities": ["振动分析", "轴承诊断"],
+      "is_busy": false,
+      "task_count": 5
+    }
+  ],
+  "recent_messages": 128
+}
+```
+
+---
+
+## 🔧 V1 API 参考
+
+### 设备管理
+
+#### GET /devices
+
+获取设备列表。
+
+**查询参数**:
+- `type`: 设备类型过滤 (s7|modbus)
+- `status`: 状态过滤 (online|offline|error)
+- `skip`: 分页起始 (默认0)
+- `limit`: 每页数量 (默认100, 最大1000)
+
+**响应**:
+```json
+{
+  "total": 18,
+  "devices": [
+    {
+      "id": "DEV_001",
+      "name": "PLC-001",
+      "type": "s7",
+      "host": "192.168.1.10",
+      "port": 102,
+      "status": "online",
+      "last_seen": "2024-01-15T10:30:00Z",
+      "tag_count": 24,
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-10T12:00:00Z"
+      "updated_at": "2024-01-15T10:30:00Z"
     }
   ]
 }
 ```
 
-### 4.2 创建规则
+---
 
-```http
-POST /rules
-Content-Type: application/json
+### 数据采集
 
-{
-  "name": "pH值异常",
-  "type": "threshold",
-  "tag": "PH_VALUE",
-  "condition": {
-    "operator": ">",
-    "value": 8.5
-  },
-  "severity": "warning",
-  "notification": {
-    "channels": ["web", "feishu"],
-    "template": "pH值偏高: {value}"
-  },
-  "suppress_duration": 900
-}
-```
+#### POST /collection/data/query
 
-**规则类型**:
+查询历史数据。
 
-| 类型 | 描述 | condition示例 |
-|------|------|---------------|
-| threshold | 阈值 | `{"operator": ">", "value": 8.5}` |
-| duration | 持续 | `{"operator": "<", "value": 2, "duration": 300}` |
-| rate | 变化率 | `{"operator": ">", "value": 0.5, "window": 60}` |
-| composite | 组合 | `{"operator": "AND", "rules": [...]}` |
-
-### 4.3 更新规则
-
-```http
-PUT /rules/{rule_id}
-Content-Type: application/json
-
-{
-  "enabled": false
-}
-```
-
-### 4.4 删除规则
-
-```http
-DELETE /rules/{rule_id}
-```
-
-### 4.5 测试规则
-
-```http
-POST /rules/{rule_id}/test
-Content-Type: application/json
-
-{
-  "value": 1.5
-}
-```
-
-**响应**:
-
+**请求体**:
 ```json
 {
-  "triggered": true,
-  "message": "条件满足，将触发告警",
-  "severity": "critical"
+  "tags": ["temperature", "pressure"],
+  "start_time": "2024-01-15T00:00:00Z",
+  "end_time": "2024-01-15T23:59:59Z",
+  "aggregation": "mean",
+  "interval": "1h"
 }
 ```
 
 ---
 
-## 5. 诊断API
+## 📊 错误处理
 
-### 5.1 执行诊断
-
-```http
-POST /diagnosis
-Content-Type: application/json
-
-{
-  "device_id": "aeration_pool_1",
-  "symptoms": "溶解氧浓度持续偏低，曝气风机运行正常",
-  "context": {
-    "do_value": 1.2,
-    "ph_value": 7.2,
-    "blower_status": "running"
-  },
-  "model": "qwen-turbo"
-}
-```
-
-**响应**:
-
+### 错误响应格式
 ```json
 {
-  "diagnosis_id": "DIAG_001",
-  "device_id": "aeration_pool_1",
-  "symptoms": "溶解氧浓度持续偏低，曝气风机运行正常",
-  "root_cause": "曝气盘部分堵塞",
-  "confidence": 0.85,
-  "reasoning": "根据症状和运行参数分析，风机运行正常排除风机故障，pH值正常排除生化异常，最可能原因是曝气盘堵塞导致曝气效率下降...",
-  "possible_causes": [
-    {"cause": "曝气盘堵塞", "probability": 0.85},
-    {"cause": "风机故障", "probability": 0.10},
-    {"cause": "DO传感器漂移", "probability": 0.05}
-  ],
-  "suggested_actions": [
-    "检查并清洗曝气盘",
-    "检查风机运行状态",
-    "校准DO传感器"
-  ],
-  "spare_parts": [
-    {"name": "曝气盘", "quantity": 5, "priority": "high"},
-    {"name": "风机滤网", "quantity": 1, "priority": "medium"}
-  ],
-  "references": [
-    {"title": "曝气系统维护手册", "type": "manual", "relevance": 0.92}
-  ],
-  "created_at": "2024-01-15T08:35:00Z"
-}
-```
-
-### 5.2 获取诊断历史
-
-```http
-GET /diagnosis/history?device_id=aeration_pool_1&limit=10
-```
-
-### 5.3 生成诊断报告
-
-```http
-POST /diagnosis/{diagnosis_id}/report
-Content-Type: application/json
-
-{
-  "format": "pdf",
-  "include_charts": true
-}
-```
-
-**响应**:
-
-```json
-{
-  "report_id": "RPT_001",
-  "download_url": "/api/reports/RPT_001.pdf",
-  "expires_at": "2024-01-16T08:35:00Z"
-}
-```
-
----
-
-## 6. 预测API
-
-### 6.1 执行预测
-
-```http
-POST /forecast
-Content-Type: application/json
-
-{
-  "tag": "DO_CONCENTRATION",
-  "model": "prophet",
-  "horizon": 24,
-  "frequency": "1h"
-}
-```
-
-**参数**:
-
-| 参数 | 类型 | 必填 | 描述 |
-|------|------|------|------|
-| tag | string | 是 | 点位标签 |
-| model | string | 是 | 模型 (prophet/arima/lstm/neural_prophet) |
-| horizon | int | 是 | 预测步数 |
-| frequency | string | 是 | 频率 (1h/1d) |
-
-**响应**:
-
-```json
-{
-  "forecast_id": "FRC_001",
-  "tag": "DO_CONCENTRATION",
-  "model": "prophet",
-  "predictions": [
-    {
-      "timestamp": "2024-01-16T00:00:00Z",
-      "value": 3.52,
-      "lower": 3.20,
-      "upper": 3.84
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "请求参数验证失败",
+    "details": {
+      "field": "symptoms",
+      "issue": "字段必填"
     }
-  ],
-  "metrics": {
-    "mae": 0.15,
-    "rmse": 0.22,
-    "mape": 4.2
   }
 }
 ```
 
-### 6.2 获取预测模型列表
-
-```http
-GET /forecast/models
-```
-
-### 6.3 评估预测模型
-
-```http
-POST /forecast/{model_id}/evaluate
-Content-Type: application/json
-
-{
-  "test_period": {
-    "start": "2024-01-01T00:00:00Z",
-    "end": "2024-01-07T00:00:00Z"
-  }
-}
-```
+### 状态码
+| 状态码 | 说明 |
+|--------|------|
+| 200 | 成功 |
+| 201 | 创建成功 |
+| 400 | 请求参数错误 |
+| 401 | 未认证 |
+| 403 | 无权限 |
+| 404 | 资源不存在 |
+| 422 | 验证错误 |
+| 500 | 服务器内部错误 |
 
 ---
 
-## 7. 知识库API
+## 💡 使用示例
 
-### 7.1 上传文档
+### Python 示例
 
-```http
-POST /knowledge/documents
-Content-Type: multipart/form-data
+```python
+import requests
 
-file: @设备手册.pdf
-category: 操作手册
-tags: 曝气池,维护
-```
+BASE_URL = "http://localhost:8000"
+TOKEN = "your_access_token"
 
-**响应**:
-
-```json
-{
-  "document_id": "DOC_001",
-  "filename": "设备手册.pdf",
-  "status": "processing",
-  "chunks": 25
+headers = {
+    "Authorization": f"Bearer {TOKEN}",
+    "Content-Type": "application/json"
 }
-```
 
-### 7.2 查询知识库
-
-```http
-POST /knowledge/query
-Content-Type: application/json
-
-{
-  "question": "如何清洗曝气盘？",
-  "top_k": 3,
-  "filter": {
-    "category": "操作手册"
-  }
-}
-```
-
-**响应**:
-
-```json
-{
-  "query": "如何清洗曝气盘？",
-  "results": [
-    {
-      "document_id": "DOC_001",
-      "title": "设备操作手册",
-      "content": "曝气盘清洗步骤: 1. 关闭风机 2. 排空池内液体 3. 拆卸曝气盘...",
-      "relevance_score": 0.92,
-      "page": 15
+# V2 多智能体诊断
+response = requests.post(
+    f"{BASE_URL}/v2/diagnosis/analyze",
+    headers=headers,
+    json={
+        "symptoms": "曝气池溶解氧持续偏低",
+        "sensor_data": {"do": 1.5, "vibration": 8.5},
+        "use_multi_agent": True,
+        "use_graph_rag": True
     }
-  ]
-}
+)
+
+result = response.json()
+print(f"诊断结论: {result['result']['final_conclusion']}")
+print(f"置信度: {result['result']['confidence']}")
+
+# 查询任务状态（异步诊断）
+task_id = result.get("task_id")
+if task_id:
+    status = requests.get(
+        f"{BASE_URL}/v2/diagnosis/task/{task_id}",
+        headers=headers
+    ).json()
+    print(f"任务状态: {status['status']}")
+    print(f"进度: {status['progress']['percentage']}%")
 ```
 
-### 7.3 获取文档列表
+### JavaScript 示例
 
-```http
-GET /knowledge/documents
-```
+```javascript
+// V2 多智能体诊断
+const diagnose = async (symptoms, sensorData) => {
+  const response = await fetch('http://localhost:8000/v2/diagnosis/analyze', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      symptoms,
+      sensor_data: sensorData,
+      use_multi_agent: true,
+      use_graph_rag: true
+    })
+  });
+  
+  return await response.json();
+};
 
-### 7.4 删除文档
-
-```http
-DELETE /knowledge/documents/{document_id}
-```
-
----
-
-## 8. 报表API
-
-### 8.1 生成日报
-
-```http
-GET /reports/daily?date=2024-01-15&format=excel
-```
-
-### 8.2 生成周报
-
-```http
-GET /reports/weekly?year=2024&week=3&format=pdf
-```
-
-### 8.3 生成自定义报表
-
-```http
-POST /reports/custom
-Content-Type: application/json
-
-{
-  "title": "月度运营报表",
-  "period": {
-    "start": "2024-01-01",
-    "end": "2024-01-31"
-  },
-  "metrics": ["进水量", "COD", "氨氮", "电耗"],
-  "format": "pdf",
-  "include_charts": true
-}
-```
-
-**响应**:
-
-```json
-{
-  "report_id": "RPT_001",
-  "download_url": "/api/reports/RPT_001.pdf",
-  "file_size": 2456789,
-  "created_at": "2024-01-15T08:35:00Z"
-}
-```
-
-### 8.4 下载报表
-
-```http
-GET /reports/{report_id}/download
+// 使用
+diagnose("曝气池DO偏低", {do: 1.5, vibration: 8.5})
+  .then(result => {
+    console.log('诊断结论:', result.result.final_conclusion);
+    console.log('置信度:', result.result.confidence);
+    console.log('专家建议:', result.result.recommended_actions);
+  });
 ```
 
 ---
 
-## 9. 系统API
+## 📚 相关文档
 
-### 9.1 获取系统状态
-
-```http
-GET /system/status
-```
-
-**响应**:
-
-```json
-{
-  "status": "healthy",
-  "version": "v1.0.0-beta1",
-  "uptime": 86400,
-  "components": {
-    "collector": "running",
-    "rule_engine": "running",
-    "anomaly_detector": "running",
-    "database": "connected"
-  },
-  "stats": {
-    "tags_count": 125,
-    "rules_count": 45,
-    "active_alerts": 3
-  }
-}
-```
-
-### 9.2 获取系统指标
-
-```http
-GET /system/metrics
-```
-
-### 9.3 健康检查
-
-```http
-GET /health
-```
-
-**响应**:
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2024-01-15T08:35:00Z"
-}
-```
-
-### 9.4 生成合规报告
-
-```http
-POST /system/compliance
-Content-Type: application/json
-
-{
-  "standard": "等保2.0",
-  "level": 3
-}
-```
+- [CHANGELOG.md](../CHANGELOG.md) - 版本更新日志
+- [README.md](../README.md) - 项目说明
+- [用户手册](user_manual.md) - 详细使用指南
 
 ---
 
-## 错误码参考
+## 🙏 致谢
 
-| 错误码 | 描述 | 说明 |
-|--------|------|------|
-| 200 | OK | 请求成功 |
-| 400 | Bad Request | 请求参数错误 |
-| 401 | Unauthorized | 未认证或Token过期 |
-| 403 | Forbidden | 权限不足 |
-| 404 | Not Found | 资源不存在 |
-| 409 | Conflict | 资源冲突 |
-| 422 | Validation Error | 数据验证失败 |
-| 429 | Too Many Requests | 请求过于频繁 |
-| 500 | Internal Server Error | 服务器内部错误 |
-| 503 | Service Unavailable | 服务不可用 |
+本API基于以下开源项目构建：
+
+- [FastAPI](https://fastapi.tiangolo.com/) - Web框架
+- [Pydantic](https://docs.pydantic.dev/) - 数据验证
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能引擎灵感
+- [CAMEL-AI](https://www.camel-ai.org/) - 多智能体框架
 
 ---
 
-## 速率限制
-
-- **默认限制**: 1000次/小时/IP
-- **认证用户**: 10000次/小时/用户
-- **限流响应**: `429 Too Many Requests`
-
----
-
-## WebSocket 实时数据
-
-连接地址: `ws://localhost:8000/ws/realtime`
-
-### 订阅点位
-
-```json
-{
-  "action": "subscribe",
-  "tags": ["DO_CONCENTRATION", "PH_VALUE"]
-}
-```
-
-### 接收数据
-
-```json
-{
-  "type": "data",
-  "timestamp": "2024-01-15T08:30:00Z",
-  "data": {
-    "DO_CONCENTRATION": 3.5,
-    "PH_VALUE": 7.2
-  }
-}
-```
-
----
-
-**文档版本**: v1.0.0-beta1  
-**最后更新**: 2026-03-26
+**版本**: v1.0.0-beta2 (MiroFish) | **更新时间**: 2026-03-27

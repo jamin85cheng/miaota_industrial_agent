@@ -1,283 +1,291 @@
-# Miaota Industrial Agent - 部署指南
+# 部署指南
 
-> **版本**: v1.0.0-beta1  
-> **更新日期**: 2026-03-26
+**版本**: v1.0.0-beta2 (MiroFish)
 
----
-
-## 目录
-
-1. [部署要求](#1-部署要求)
-2. [快速部署](#2-快速部署)
-3. [生产部署](#3-生产部署)
-4. [配置说明](#4-配置说明)
-5. [监控与维护](#5-监控与维护)
-6. [故障排除](#6-故障排除)
+**目标读者**: 运维工程师、DevOps工程师
 
 ---
 
-## 1. 部署要求
+## 📋 目录
 
-### 1.1 系统要求
+1. [系统要求](#系统要求)
+2. [快速部署](#快速部署)
+3. [Docker部署](#docker部署)
+4. [生产环境配置](#生产环境配置)
+5. [V2新特性部署](#v2新特性部署)
+6. [监控与运维](#监控与运维)
 
-#### 硬件要求
+---
 
-| 环境 | CPU | 内存 | 磁盘 | 网络 |
-|------|-----|------|------|------|
-| **最小配置** | 4核 | 8GB | 50GB SSD | 100Mbps |
-| **推荐配置** | 8核+ | 16GB+ | 100GB+ SSD | 1000Mbps |
-| **生产配置** | 16核+ | 32GB+ | 500GB+ SSD | 1000Mbps |
+## 系统要求
 
-#### 软件要求
+### 最低配置
 
-| 软件 | 版本 | 说明 |
+| 组件 | 配置 | 说明 |
 |------|------|------|
-| Python | 3.9+ | 运行时环境 |
-| Docker | 20.10+ | 容器化部署 |
-| Docker Compose | 2.0+ | 编排工具 |
-| InfluxDB | 2.6+ | 时序数据库 |
-| Redis | 6.0+ | 缓存服务 |
+| CPU | 2核 | 基础功能运行 |
+| 内存 | 4GB | 基础功能运行 |
+| 磁盘 | 20GB | 数据存储 |
+| Python | 3.11+ | 运行环境 |
 
-### 1.2 操作系统支持
+### 推荐配置 (V2完整功能)
 
-- ✅ Ubuntu 20.04 LTS / 22.04 LTS
-- ✅ CentOS 7 / 8
-- ✅ Debian 11 / 12
-- ✅ Windows Server 2019+
-- ✅ macOS (开发环境)
+| 组件 | 配置 | 说明 |
+|------|------|------|
+| CPU | 4核+ | 多智能体诊断并行计算 |
+| 内存 | 8GB+ | 知识图谱、CAMEL社会 |
+| 磁盘 | 50GB+ SSD | 时序数据、知识库存储 |
+| Python | 3.11+ | 运行环境 |
+| Neo4j | 可选 | 知识图谱持久化 |
 
 ---
 
-## 2. 快速部署
+## 快速部署
 
-### 2.1 Docker Compose 部署 (推荐)
-
-#### 步骤1: 下载项目
+### 1. 环境准备
 
 ```bash
-git clone https://github.com/your-org/miaota-industrial-agent.git
-cd miaota-industrial-agent
+# 安装系统依赖 (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install -y python3.11 python3.11-venv python3-pip git
+
+# 创建应用目录
+sudo mkdir -p /opt/miaota
+sudo chown $USER:$USER /opt/miaota
+cd /opt/miaota
 ```
 
-#### 步骤2: 配置环境
+### 2. 代码部署
 
 ```bash
-# 复制配置文件
-cp config/settings.yaml.example config/settings.yaml
+# 克隆代码
+git clone https://github.com/jamin85cheng/miaota_industrial_agent.git .
 
-# 编辑配置
-vim config/settings.yaml
+# 创建虚拟环境
+python3.11 -m venv venv
+source venv/bin/activate
+
+# 安装依赖
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 可选: 安装CAMEL框架（用于高级多智能体功能）
+pip install camel-ai
 ```
 
-#### 步骤3: 启动服务
+### 3. 初始化配置
+
+```bash
+# 创建数据目录
+mkdir -p data logs config
+
+# 初始化数据库
+python migrations/migration_manager.py init
+python migrations/migration_manager.py migrate
+
+# 生成配置文件
+python -c "
+import yaml
+config = {
+    'app': {
+        'name': 'Miaota Industrial Agent',
+        'version': 'v1.0.0-beta2',
+        'debug': False
+    },
+    'database': {
+        'path': 'data/miaota.db'
+    },
+    'influxdb': {
+        'url': 'http://localhost:8086',
+        'token': 'your-token',
+        'org': 'miaota',
+        'bucket': 'industrial_data'
+    },
+    'diagnosis': {
+        'v2': {
+            'enabled': True,
+            'default_mode': 'multi_agent'
+        }
+    },
+    'security': {
+        'jwt_secret': 'your-secret-key-change-in-production',
+        'token_expire_minutes': 30
+    }
+}
+with open('config/settings.yaml', 'w') as f:
+    yaml.dump(config, f)
+"
+```
+
+### 4. 启动服务
+
+```bash
+# 开发模式
+python -m src.api.main
+
+# 生产模式 (使用Gunicorn)
+pip install gunicorn
+gunicorn src.api.main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --access-logfile logs/access.log \
+  --error-logfile logs/error.log
+```
+
+---
+
+## Docker部署
+
+### 使用 Docker Compose (推荐)
+
+#### 1. 创建 docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  # Miaota API服务
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=sqlite:///app/data/miaota.db
+      - INFLUXDB_URL=http://influxdb:8086
+    depends_on:
+      - influxdb
+      - redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # 前端静态文件 (Nginx)
+  web:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./src/web/static:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # 时序数据库
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=miaota
+      - DOCKER_INFLUXDB_INIT_BUCKET=industrial_data
+    restart: unless-stopped
+
+  # 缓存与消息队列
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # 可选: 知识图谱数据库
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/password
+      - NEO4J_PLUGINS=["apoc"]
+    restart: unless-stopped
+
+volumes:
+  influxdb-data:
+  redis-data:
+  neo4j-data:
+```
+
+#### 2. 创建 Dockerfile
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装Python依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 可选: 安装CAMEL
+RUN pip install --no-cache-dir camel-ai
+
+# 复制代码
+COPY . .
+
+# 创建数据目录
+RUN mkdir -p data logs
+
+# 暴露端口
+EXPOSE 8000
+
+# 启动命令
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+#### 3. 部署
 
 ```bash
 # 构建并启动
 docker-compose up -d
 
 # 查看日志
-docker-compose logs -f
+docker-compose logs -f api
 
-# 查看状态
-docker-compose ps
-```
+# 执行数据库迁移
+docker-compose exec api python migrations/migration_manager.py migrate
 
-#### 步骤4: 验证部署
-
-```bash
-# 健康检查
-curl http://localhost:8000/health
-
-# API测试
-curl http://localhost:8000/api/v1/system/status
-```
-
-### 2.2 手动部署
-
-#### 步骤1: 安装依赖
-
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv
-
-# CentOS
-sudo yum install -y python3 python3-pip
-```
-
-#### 步骤2: 创建虚拟环境
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-#### 步骤3: 安装Python依赖
-
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-#### 步骤4: 配置数据库
-
-```bash
-# 启动InfluxDB
-docker run -d \
-  --name influxdb \
-  -p 8086:8086 \
-  -v influxdb-data:/var/lib/influxdb2 \
-  influxdb:2.6
-
-# 启动Redis
-docker run -d \
-  --name redis \
-  -p 6379:6379 \
-  redis:6-alpine
-```
-
-#### 步骤5: 初始化配置
-
-```bash
-# 创建目录
-mkdir -p data/db data/knowledge_base data/reports logs
-
-# 复制配置
-cp config/settings.yaml.example config/settings.yaml
-```
-
-#### 步骤6: 启动服务
-
-```bash
-# 开发模式
-python src/main.py
-
-# 生产模式 (使用Gunicorn)
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:8000
+# 停止
+docker-compose down
 ```
 
 ---
 
-## 3. 生产部署
+## 生产环境配置
 
-### 3.1 高可用架构
-
-```
-                    ┌─────────────┐
-                    │   Nginx     │
-                    │   (LB)      │
-                    └──────┬──────┘
-                           │
-           ┌───────────────┼───────────────┐
-           │               │               │
-     ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
-     │  App #1   │   │  App #2   │   │  App #3   │
-     │  :8000    │   │  :8001    │   │  :8002    │
-     └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
-           │               │               │
-           └───────────────┼───────────────┘
-                           │
-     ┌─────────────────────┼─────────────────────┐
-     │                     │                     │
-┌────▼────┐          ┌─────▼─────┐         ┌────▼────┐
-│InfluxDB │          │  Redis    │         │ChromaDB │
-│Cluster  │          │ Cluster   │         │         │
-└─────────┘          └───────────┘         └─────────┘
-```
-
-### 3.2 Kubernetes 部署
-
-#### 创建命名空间
-
-```bash
-kubectl create namespace miaota
-```
-
-#### 部署配置
-
-```yaml
-# k8s/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: miaota-app
-  namespace: miaota
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: miaota
-  template:
-    metadata:
-      labels:
-        app: miaota
-    spec:
-      containers:
-      - name: app
-        image: miaota/industrial-agent:v1.0.0-beta1
-        ports:
-        - containerPort: 8000
-        resources:
-          requests:
-            memory: "2Gi"
-            cpu: "1000m"
-          limits:
-            memory: "4Gi"
-            cpu: "2000m"
-        env:
-        - name: INFLUXDB_URL
-          value: "http://influxdb:8086"
-        - name: REDIS_URL
-          value: "redis://redis:6379"
-        volumeMounts:
-        - name: config
-          mountPath: /app/config
-      volumes:
-      - name: config
-        configMap:
-          name: miaota-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: miaota-service
-  namespace: miaota
-spec:
-  selector:
-    app: miaota
-  ports:
-  - port: 80
-    targetPort: 8000
-  type: ClusterIP
-```
-
-#### 部署命令
-
-```bash
-# 应用配置
-kubectl apply -f k8s/
-
-# 查看状态
-kubectl get pods -n miaota
-
-# 查看日志
-kubectl logs -f deployment/miaota-app -n miaota
-```
-
-### 3.3 Nginx 反向代理配置
+### 1. Nginx 反向代理
 
 ```nginx
-# /etc/nginx/conf.d/miaota.conf
-upstream miaota_backend {
-    server 127.0.0.1:8000;
-    server 127.0.0.1:8001;
-    server 127.0.0.1:8002;
-    keepalive 32;
-}
-
+# /etc/nginx/sites-available/miaota
 server {
     listen 80;
-    server_name miaota.example.com;
+    server_name your-domain.com;
     
     # 重定向到HTTPS
     return 301 https://$server_name$request_uri;
@@ -285,29 +293,30 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name miaota.example.com;
-    
+    server_name your-domain.com;
+
+    # SSL证书
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
-    
+    ssl_protocols TLSv1.2 TLSv1.3;
+
     # 静态文件
-    location /static {
-        alias /app/static;
+    location /static/ {
+        alias /opt/miaota/src/web/static/;
         expires 30d;
     }
-    
+
     # API代理
     location / {
-        proxy_pass http://miaota_backend;
+        proxy_pass http://localhost:8000;
         proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # WebSocket支持
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_cache_bypass $http_upgrade;
         
         # 超时设置
         proxy_connect_timeout 60s;
@@ -317,355 +326,362 @@ server {
 }
 ```
 
-### 3.4 数据库配置
-
-#### InfluxDB 集群
-
-```yaml
-# docker-compose.influxdb-cluster.yml
-version: '3.8'
-services:
-  influxdb-meta-1:
-    image: influxdb:2.6-meta
-    environment:
-      - INFLUXDB_META_DIR=/var/lib/influxdb/meta
-      
-  influxdb-data-1:
-    image: influxdb:2.6-data
-    environment:
-      - INFLUXDB_DATA_DIR=/var/lib/influxdb/data
-      - INFLUXDB_META_SERVERS=influxdb-meta-1:8091
-```
-
-#### Redis 集群
+### 2. 系统服务配置
 
 ```bash
-# 创建Redis集群
-docker run --rm -it redis:6-alpine \
-  redis-cli --cluster create \
-  172.18.0.2:6379 172.18.0.3:6379 172.18.0.4:6379 \
-  --cluster-replicas 1
+# /etc/systemd/system/miaota.service
+sudo tee /etc/systemd/system/miaota.service > /dev/null <<EOF
+[Unit]
+Description=Miaota Industrial Agent
+After=network.target
+
+[Service]
+Type=simple
+User=miaota
+Group=miaota
+WorkingDirectory=/opt/miaota
+Environment=PATH=/opt/miaota/venv/bin
+Environment=PYTHONPATH=/opt/miaota
+Environment=APP_ENV=production
+ExecStart=/opt/miaota/venv/bin/gunicorn src.api.main:app \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 0.0.0.0:8000 \
+    --access-logfile /opt/miaota/logs/access.log \
+    --error-logfile /opt/miaota/logs/error.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 启用服务
+sudo systemctl daemon-reload
+sudo systemctl enable miaota
+sudo systemctl start miaota
+sudo systemctl status miaota
+```
+
+### 3. 安全配置
+
+```bash
+# 设置文件权限
+sudo chown -R miaota:miaota /opt/miaota
+sudo chmod 600 /opt/miaota/config/settings.yaml
+sudo chmod 750 /opt/miaota/data
+
+# 配置防火墙
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+
+# 配置Fail2Ban防止暴力破解
+sudo apt-get install fail2ban
+sudo tee /etc/fail2ban/jail.local > /dev/null <<EOF
+[miaota-api]
+enabled = true
+port = http,https
+filter = miaota-api
+logpath = /opt/miaota/logs/access.log
+maxretry = 5
+bantime = 3600
+EOF
 ```
 
 ---
 
-## 4. 配置说明
+## V2新特性部署
 
-### 4.1 主要配置文件
+### 知识图谱 (Neo4j)
 
-#### settings.yaml
+#### 1. 安装Neo4j
 
-```yaml
-# 服务器配置
-server:
-  host: "0.0.0.0"
-  port: 8000
-  workers: 4
-  debug: false
+```bash
+# Docker方式
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -v /opt/neo4j/data:/data \
+  -e NEO4J_AUTH=neo4j/your-password \
+  neo4j:5-community
 
-# 数据库配置
-database:
-  influxdb:
-    url: "http://localhost:8086"
-    token: "your-token"
-    org: "miaota"
-    bucket: "industrial_data"
-  
-  sqlite:
-    path: "data/db/miaota.db"
-  
-  redis:
-    host: "localhost"
-    port: 6379
-    db: 0
-  
-  chromadb:
-    path: "data/chroma"
-
-# PLC配置
-plc:
-  - name: "S7-1200-1"
-    type: "s7"
-    host: "192.168.1.10"
-    port: 102
-    rack: 0
-    slot: 1
-    reconnect_interval: 10
-    
-  - name: "Modbus-TCP-1"
-    type: "modbus"
-    host: "192.168.1.20"
-    port: 502
-    unit_id: 1
-
-# 采集配置
-collection:
-  interval: 5  # 秒
-  batch_size: 100
-  buffer_size: 10000
-
-# AI模型配置
-models:
-  llm:
-    provider: "qwen"  # qwen/openai/chatglm
-    api_key: "your-api-key"
-    model: "qwen-turbo"
-    temperature: 0.7
-  
-  anomaly_detection:
-    algorithm: "isolation_forest"
-    contamination: 0.05
-  
-  forecasting:
-    default_model: "prophet"
-    auto_select: true
-
-# 通知配置
-notification:
-  channels:
-    feishu:
-      enabled: true
-      webhook_url: "https://open.feishu.cn/..."
-    
-    dingtalk:
-      enabled: false
-      webhook_url: ""
-    
-    sms:
-      enabled: false
-      provider: "aliyun"
-      access_key: ""
-      secret_key: ""
-
-# 安全配置
-security:
-  jwt_secret: "your-secret-key"
-  token_expire_hours: 24
-  password_min_length: 8
-  max_login_attempts: 5
-
-# 日志配置
-logging:
-  level: "INFO"
-  format: "json"
-  output: "file"
-  max_size: "100MB"
-  max_backup: 10
+# 或 apt安装
+wget -O - https://debian.neo4j.com/neotechnology.gpg.key | sudo apt-key add -
+echo 'deb https://debian.neo4j.com stable 5' | sudo tee /etc/apt/sources.list.d/neo4j.list
+sudo apt-get update
+sudo apt-get install neo4j
+sudo systemctl enable neo4j
+sudo systemctl start neo4j
 ```
 
-### 4.2 环境变量
+#### 2. 配置连接
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `MIAOTA_ENV` | 运行环境 | `production` |
-| `MIAOTA_CONFIG` | 配置文件路径 | `config/settings.yaml` |
-| `INFLUXDB_URL` | InfluxDB地址 | `http://localhost:8086` |
-| `INFLUXDB_TOKEN` | InfluxDB Token | - |
-| `REDIS_URL` | Redis地址 | `redis://localhost:6379` |
-| `LLM_API_KEY` | LLM API密钥 | - |
-| `JWT_SECRET` | JWT密钥 | - |
+```yaml
+# config/settings.yaml
+knowledge_graph:
+  enabled: true
+  backend: "neo4j"  # memory 或 neo4j
+  neo4j:
+    uri: "bolt://localhost:7687"
+    user: "neo4j"
+    password: "your-password"
+```
+
+### CAMEL框架配置
+
+```bash
+# 安装CAMEL
+pip install camel-ai
+
+# 配置LLM (以OpenAI为例)
+export OPENAI_API_KEY="your-api-key"
+
+# 或配置其他LLM (Qwen/ChatGLM等)
+export LLM_BASE_URL="https://api.your-llm.com/v1"
+export LLM_API_KEY="your-api-key"
+export LLM_MODEL="qwen-turbo"
+```
+
+### 任务追踪配置
+
+```yaml
+# config/settings.yaml
+task_tracker:
+  max_concurrent: 10        # 最大并发任务数
+  default_timeout: 3600     # 默认超时(秒)
+  cleanup_interval: 86400   # 清理间隔(秒)
+  retention_days: 30        # 任务保留天数
+```
 
 ---
 
-## 5. 监控与维护
+## 监控与运维
 
-### 5.1 系统监控
-
-#### 使用 Prometheus + Grafana
-
-```yaml
-# docker-compose.monitoring.yml
-version: '3.8'
-services:
-  prometheus:
-    image: prom/prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-    ports:
-      - "9090:9090"
-  
-  grafana:
-    image: grafana/grafana
-    volumes:
-      - grafana-data:/var/lib/grafana
-    ports:
-      - "3000:3000"
-```
-
-#### 关键指标
-
-| 指标 | 说明 | 告警阈值 |
-|------|------|----------|
-| `up` | 服务存活 | =0 告警 |
-| `http_requests_total` | HTTP请求数 | - |
-| `http_request_duration_seconds` | 请求延迟 | >2s 告警 |
-| `plc_connection_status` | PLC连接状态 | =0 告警 |
-| `data_collection_rate` | 采集速率 | 下降50% 告警 |
-
-### 5.2 日志管理
-
-#### 日志轮转配置
-
-```yaml
-# config/logging.yaml
-logging:
-  version: 1
-  handlers:
-    file:
-      class: logging.handlers.RotatingFileHandler
-      filename: logs/app.log
-      maxBytes: 104857600  # 100MB
-      backupCount: 10
-    
-    error_file:
-      class: logging.handlers.RotatingFileHandler
-      filename: logs/error.log
-      maxBytes: 104857600
-      backupCount: 10
-      level: ERROR
-```
-
-#### 日志收集 (使用 ELK)
-
-```yaml
-# docker-compose.elk.yml
-version: '3.8'
-services:
-  elasticsearch:
-    image: elasticsearch:8.5.0
-    environment:
-      - discovery.type=single-node
-    ports:
-      - "9200:9200"
-  
-  logstash:
-    image: logstash:8.5.0
-    volumes:
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-  
-  kibana:
-    image: kibana:8.5.0
-    ports:
-      - "5601:5601"
-```
-
-### 5.3 备份策略
-
-#### 自动备份脚本
+### 1. 日志管理
 
 ```bash
+# 使用logrotate管理日志
+sudo tee /etc/logrotate.d/miaota > /dev/null <<EOF
+/opt/miaota/logs/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 miaota miaota
+    sharedscripts
+    postrotate
+        systemctl reload miaota
+    endscript
+}
+EOF
+```
+
+### 2. 健康检查
+
+```bash
+# 添加到crontab每分钟检查
+* * * * * /opt/miaota/scripts/health_check.sh
+
+# health_check.sh内容:
 #!/bin/bash
-# scripts/backup.sh
+HEALTH=$(curl -sf http://localhost:8000/health || echo "FAIL")
+if [ "$HEALTH" = "FAIL" ]; then
+    systemctl restart miaota
+    echo "$(date): Service restarted" >> /opt/miaota/logs/health.log
+fi
+```
 
-BACKUP_DIR="/backup/$(date +%Y%m%d)"
+### 3. 备份策略
+
+```bash
+# 数据库备份脚本
+#!/bin/bash
+BACKUP_DIR="/backup/miaota/$(date +%Y%m%d)"
 mkdir -p $BACKUP_DIR
 
-# 备份InfluxDB
-docker exec influxdb influx backup /backup/influxdb
-docker cp influxdb:/backup/influxdb $BACKUP_DIR/
-
 # 备份SQLite
-cp data/db/miaota.db $BACKUP_DIR/
+cp /opt/miaota/data/miaota.db $BACKUP_DIR/
 
 # 备份配置
-tar czvf $BACKUP_DIR/config.tar.gz config/
+cp -r /opt/miaota/config $BACKUP_DIR/
 
-# 备份知识库
-tar czvf $BACKUP_DIR/knowledge.tar.gz data/knowledge_base/
+# 备份InfluxDB (如果使用)
+docker exec influxdb influx backup /tmp/backup
+docker cp influxdb:/tmp/backup $BACKUP_DIR/influxdb
 
-# 上传到远程 (可选)
-# aws s3 sync $BACKUP_DIR s3://your-bucket/backups/
-
-# 清理旧备份 (保留7天)
-find /backup -type d -mtime +7 -exec rm -rf {} \;
-
-echo "备份完成: $BACKUP_DIR"
+# 压缩并上传到远程
+ tar czf $BACKUP_DIR.tar.gz $BACKUP_DIR
+# scp or rsync to remote server
 ```
 
-#### Cron定时任务
+### 4. 性能监控
 
 ```bash
-# 每天凌晨2点备份
-0 2 * * * /app/scripts/backup.sh >> /var/log/backup.log 2>&1
+# 安装Prometheus + Grafana监控
+# prometheus.yml添加:
+scrape_configs:
+  - job_name: 'miaota'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+```
+
+### 5. 常用运维命令
+
+```bash
+# 查看服务状态
+sudo systemctl status miaota
+
+# 重启服务
+sudo systemctl restart miaota
+
+# 查看日志
+sudo tail -f /opt/miaota/logs/error.log
+
+# 查看API访问日志
+sudo tail -f /opt/miaota/logs/access.log
+
+# 检查端口
+netstat -tlnp | grep 8000
+
+# 查看资源使用
+htop
+
+# 数据库迁移
+python migrations/migration_manager.py status
+python migrations/migration_manager.py migrate
 ```
 
 ---
 
-## 6. 故障排除
+## 升级指南
 
-### 6.1 服务无法启动
+### 从 v1.0.0-beta1 升级到 v1.0.0-beta2
 
-**症状**: `docker-compose up` 失败
+```bash
+# 1. 备份现有数据
+cp -r /opt/miaota/data /opt/miaota/data-backup-$(date +%Y%m%d)
 
-**排查步骤**:
-1. 检查端口占用: `netstat -tlnp | grep 8000`
-2. 检查配置文件: `python -c "import yaml; yaml.safe_load(open('config/settings.yaml'))"`
-3. 检查日志: `docker-compose logs app`
+# 2. 拉取新版本代码
+cd /opt/miaota
+git pull origin main
 
-### 6.2 数据库连接失败
+# 3. 更新依赖
+source venv/bin/activate
+pip install -r requirements.txt
+pip install camel-ai  # V2新依赖
 
-**症状**: 无法写入数据
+# 4. 执行数据库迁移
+python migrations/migration_manager.py migrate
 
-**排查步骤**:
-1. 检查InfluxDB状态: `docker ps | grep influxdb`
-2. 测试连接: `curl http://localhost:8086/health`
-3. 检查Token: `docker logs influxdb | grep "Token"`
+# 5. 更新配置
+cp config/settings.yaml config/settings.yaml.bak
+# 手动合并新配置项 (参考CHANGELOG.md)
 
-### 6.3 PLC采集失败
+# 6. 重启服务
+sudo systemctl restart miaota
 
-**症状**: 数据采集状态为"离线"
+# 7. 验证
+curl http://localhost:8000/version
+# 应返回: {"version": "v1.0.0-beta2", ...}
+```
 
-**排查步骤**:
-1. 网络连通性: `ping <PLC_IP>`
-2. 端口开放: `telnet <PLC_IP> 102`
-3. 查看日志: `tail -f logs/collector.log`
+---
 
-### 6.4 性能问题
+## 故障排查
 
-**症状**: 系统响应慢
+### 问题1: 服务启动失败
 
-**优化建议**:
-1. 增加内存: `docker update --memory=8g miaota-app`
-2. 启用缓存: 配置Redis
-3. 数据库优化: 创建索引
-4. 增加工作进程: `workers: 8`
+```bash
+# 检查Python版本
+python3 --version  # 需要3.11+
+
+# 检查依赖
+pip list | grep -E "fastapi|uvicorn"
+
+# 检查端口占用
+sudo lsof -i :8000
+
+# 查看详细错误
+python -m src.api.main 2>&1 | tee startup.log
+```
+
+### 问题2: 数据库连接失败
+
+```bash
+# 检查数据库文件权限
+ls -la data/miaota.db
+
+# 检查数据库版本
+python migrations/migration_manager.py status
+
+# 重新初始化（数据会丢失！）
+rm data/miaota.db
+python migrations/migration_manager.py init
+python migrations/migration_manager.py migrate
+```
+
+### 问题3: V2诊断功能异常
+
+```bash
+# 检查知识图谱状态
+curl http://localhost:8000/v2/diagnosis/knowledge/graph
+
+# 检查CAMEL依赖
+pip list | grep camel
+
+# 检查任务追踪器
+python -c "from src.tasks import task_tracker; print(task_tracker.get_stats())"
+```
 
 ---
 
 ## 附录
 
-### A. 常用命令
+### 环境变量参考
 
-```bash
-# 查看日志
-docker-compose logs -f
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `APP_ENV` | 运行环境 | `development` |
+| `DATABASE_URL` | 数据库连接 | `sqlite:///data/miaota.db` |
+| `INFLUXDB_URL` | InfluxDB地址 | `http://localhost:8086` |
+| `REDIS_URL` | Redis地址 | `redis://localhost:6379` |
+| `JWT_SECRET` | JWT密钥 | `change-in-production` |
+| `OPENAI_API_KEY` | OpenAI API Key | - |
+| `NEO4J_URI` | Neo4j连接URI | - |
 
-# 重启服务
-docker-compose restart
-
-# 更新镜像
-docker-compose pull && docker-compose up -d
-
-# 进入容器
-docker exec -it miaota-app bash
-
-# 查看资源使用
-docker stats
-```
-
-### B. 端口列表
+### 端口说明
 
 | 端口 | 服务 | 说明 |
 |------|------|------|
-| 8000 | 应用服务 | Web/API |
+| 8000 | API服务 | 主应用端口 |
+| 80 | Nginx | Web服务器 |
+| 443 | Nginx HTTPS | SSL加密 |
 | 8086 | InfluxDB | 时序数据库 |
-| 6379 | Redis | 缓存服务 |
-| 8000 | ChromaDB | 向量数据库 |
-| 9090 | Prometheus | 监控系统 |
-| 3000 | Grafana | 可视化 |
+| 6379 | Redis | 缓存/队列 |
+| 7474 | Neo4j Browser | 图数据库UI |
+| 7687 | Neo4j Bolt | 图数据库协议 |
 
 ---
 
-**文档版本**: v1.0.0-beta1  
-**最后更新**: 2026-03-26
+## 🙏 致谢
+
+感谢以下开源项目为部署和运维提供支持：
+
+- [Docker](https://www.docker.com/) - 容器化平台
+- [Nginx](https://nginx.org/) - Web服务器与反向代理
+- [Gunicorn](https://gunicorn.org/) - WSGI HTTP服务器
+- [Neo4j](https://neo4j.com/) - 图数据库 (知识图谱)
+- [InfluxDB](https://www.influxdata.com/) - 时序数据库
+- [Redis](https://redis.io/) - 缓存与消息队列
+- [Prometheus](https://prometheus.io/) - 监控系统
+- [Grafana](https://grafana.com/) - 可视化监控
+
+---
+
+**版本**: v1.0.0-beta2 (MiroFish) | **最后更新**: 2026-03-27

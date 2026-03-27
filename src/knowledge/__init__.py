@@ -1,6 +1,21 @@
-# 知识库模块初始化文件
-from .rag_engine import RAGEngine
-from .vector_store import VectorStore
-from .document_loader import DocumentLoader
+"""
+知识库模块
 
-__all__ = ['RAGEngine', 'VectorStore', 'DocumentLoader']
+包含GraphRAG、知识图谱等功能
+"""
+
+from .graph_rag import (
+    KnowledgeGraph,
+    GraphRAG,
+    graph_rag,
+    Entity,
+    Relation
+)
+
+__all__ = [
+    "KnowledgeGraph",
+    "GraphRAG",
+    "graph_rag",
+    "Entity",
+    "Relation"
+]
