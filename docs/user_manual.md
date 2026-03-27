@@ -1,6 +1,6 @@
 # Jamin Industrial Agent 用户手册
 
-**版本**: v1.0.0-beta2 (MiroFish)
+**版本**: v1.0.0-beta2
 
 **适用对象**: 运维工程师、设备管理人员、系统管理员
 
@@ -74,7 +74,9 @@ curl -X POST http://localhost:8000/devices \
 
 ### 什么是V2智能诊断？
 
-V2智能诊断是 **v1.0.0-beta2** 版本的核心升级，集成了 **MiroFish** 群体智能引擎：
+V2智能诊断是 **v1.0.0-beta2** 版本的核心升级，采用了多智能体协同诊断方案：
+
+说明：本项目未直接使用 **MiroFish** 作为版本代号或产品命名，仅参考了其部分群体智能协作思路。
 
 - 🤖 **多智能体协作**: 5位领域专家Agent同时分析
 - 🧠 **知识图谱增强**: 基于图结构的根因追溯
@@ -474,7 +476,7 @@ DO低
 
 感谢以下开源项目为工业智能化做出的贡献：
 
-- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能诊断引擎
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能协作思路参考来源之一
 - [CAMEL-AI](https://www.camel-ai.org/) - 多智能体协作框架
 - [GraphRAG](https://microsoft.github.io/graphrag/) - 知识图谱技术
 - [FastAPI](https://fastapi.tiangolo.com/) - API框架
@@ -482,5 +484,5 @@ DO低
 
 ---
 
-**版本**: v1.0.0-beta2 (MiroFish) | **最后更新**: 2026-03-27
+**版本**: v1.0.0-beta2 | **最后更新**: 2026-03-27
 

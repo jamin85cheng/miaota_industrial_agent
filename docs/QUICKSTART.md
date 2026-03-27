@@ -1,6 +1,6 @@
 # 快速启动指南
 
-**版本**: v1.0.0-beta2 (MiroFish)
+**版本**: v1.0.0-beta2
 
 ---
 
@@ -192,9 +192,9 @@ http://localhost:8000/static/index.html
 
 - [FastAPI](https://fastapi.tiangolo.com/) - 高性能API
 - [Uvicorn](https://www.uvicorn.org/) - ASGI服务器
-- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能引擎
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能协作思路参考来源之一
 - [CAMEL-AI](https://www.camel-ai.org/) - 多智能体框架
 
 ---
 
-**版本**: v1.0.0-beta2 (MiroFish) | **更新时间**: 2026-03-27 | **快速上手，立即体验群体智能诊断！**
+**版本**: v1.0.0-beta2 | **更新时间**: 2026-03-27 | **快速上手，立即体验多智能体协同诊断！**

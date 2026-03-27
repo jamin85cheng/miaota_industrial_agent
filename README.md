@@ -5,17 +5,19 @@
 > **让每一台设备都会"说话"，让每一个异常都有"解释"，让每一次决策都有"依据"。**
 
 [![Version](https://img.shields.io/badge/version-v1.0.0--beta2-blue.svg)](CHANGELOG.md)
-[![Status](https://img.shields.io/badge/status-MiroFish%20Integrated-success.svg)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/status-Beta2%20Enhanced-success.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**当前版本**: v1.0.0-beta2 (代号: MiroFish 🐟)
+**当前版本**: v1.0.0-beta2
 
-**重大更新**: 集成 MiroFish 群体智能引擎，实现多智能体协同诊断！
+**重大更新**: 多智能体协同诊断能力增强，进一步提升工业故障分析能力。
 
 ---
 
-## 🎉 V1.0.0-beta2 新特性 (MiroFish集成)
+## 🎉 V1.0.0-beta2 新特性
+
+> 说明：本项目未直接使用 `MiroFish` 作为命名代号，仅参考了其部分群体智能协作思路，并结合本项目场景进行了自研实现。
 
 ### 🤖 多智能体协同诊断
 - **5位领域专家Agent**协作诊断
@@ -51,7 +53,7 @@
 从 PLC 原始数据出发，通过 AI 技术实现：
 - ✅ **数字化与感知** - 全面采集、存储和初步分析 (100%)
 - ✅ **专用智能体** - 领域专用 AI 模型和智能诊断 (100%)
-- ✅ **多智能体协作** - MiroFish群体智能诊断引擎 (NEW!)
+- ✅ **多智能体协作** - 参考群体智能协作思路的诊断引擎 (NEW!)
 - ⏳ **闭环自动化** - 安全可控的自动控制和优化 (规划中)
 - ⏳ **自进化生态** - 持续学习和进化的智能生态系统 (规划中)
 
@@ -359,7 +361,7 @@ Jamin V2:
 
 ### ✅ 已完成
 - **v1.0.0-beta1**: 核心功能全部可用
-- **v1.0.0-beta2**: MiroFish集成 - 多智能体诊断、GraphRAG、CAMEL
+- **v1.0.0-beta2**: 多智能体诊断增强 - 多智能体诊断、GraphRAG、CAMEL
 
 ### ⏳ 阶段三: 闭环自动化 (2024 Q3-Q4)
 - 安全控制指令下发
@@ -402,7 +404,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 本项目基于众多优秀的开源项目构建，特别感谢：
 
 ### 核心框架与引擎
-- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能引擎灵感来源，新一代AI预测引擎
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能协作思路参考来源之一
 - [CAMEL-AI](https://www.camel-ai.org/) - 多智能体框架与OASIS社会模拟平台
 - [GraphRAG](https://microsoft.github.io/graphrag/) - 知识图谱检索增强生成技术
 
@@ -440,7 +442,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 ## 📞 联系方式
 
 - **GitHub**: https://github.com/jamin85cheng/jamin_industrial_agent
-**版本**: v1.0.0-beta2 (MiroFish) | **更新时间**: 2026-03-27
+**版本**: v1.0.0-beta2 | **更新时间**: 2026-03-27
 
 ---
 

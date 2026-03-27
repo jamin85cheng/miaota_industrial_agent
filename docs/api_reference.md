@@ -1,6 +1,6 @@
 # API 参考文档
 
-**版本**: v1.0.0-beta2 (MiroFish)
+**版本**: v1.0.0-beta2
 
 **基础URL**: `http://localhost:8000`
 
@@ -36,7 +36,7 @@ X-API-Key: <your_api_key>
 | `POST /analysis/anomaly` | 异常检测 |
 | `POST /knowledge/search` | 知识搜索 |
 
-### V2 API (新增 - MiroFish集成)
+### V2 API (新增 - 多智能体诊断增强)
 | 端点 | 说明 |
 |------|------|
 | `POST /v2/diagnosis/analyze` | 多智能体诊断 |
@@ -517,9 +517,9 @@ diagnose("曝气池DO偏低", {do: 1.5, vibration: 8.5})
 
 - [FastAPI](https://fastapi.tiangolo.com/) - Web框架
 - [Pydantic](https://docs.pydantic.dev/) - 数据验证
-- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能引擎灵感
+- [MiroFish](https://github.com/666ghj/MiroFish) - 群体智能协作思路参考来源之一
 - [CAMEL-AI](https://www.camel-ai.org/) - 多智能体框架
 
 ---
 
-**版本**: v1.0.0-beta2 (MiroFish) | **更新时间**: 2026-03-27
+**版本**: v1.0.0-beta2 | **更新时间**: 2026-03-27

@@ -227,9 +227,9 @@ async def get_current_user_info(user=Depends(get_current_user)):
 async def get_version():
     return {
         "version": "v1.0.0-beta2",
-        "codename": "MiroFish",
+        "codename": "",
         "build_time": "2024-01-15",
-        "git_commit": "mirofish-integration",
+        "git_commit": "beta2-docs-aligned",
         "python_version": "3.11+",
     }
 

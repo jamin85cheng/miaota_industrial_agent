@@ -1,10 +1,12 @@
 ﻿# Jamin Industrial Agent 版本更新日志
 
-## v1.0.0-beta2 (MiroFish) - 2026-03-27
+## v1.0.0-beta2 - 2026-03-27
 
 ### 🎉 重大更新
 
-本版本集成了 **MiroFish** 群体智能引擎的核心能力，实现了工业故障诊断的重大升级。
+本版本围绕多智能体协同诊断、GraphRAG 与任务追踪能力完成了核心升级。
+
+说明：本项目未将 **MiroFish** 作为正式版本代号或产品命名，仅参考了其部分群体智能协作思路，并结合工业诊断场景完成了本项目实现。
 
 ### ✨ 新功能
 
@@ -155,7 +157,7 @@ pip install camel-ai  # CAMEL框架（可选）
 
 ### 📚 参考文档
 
-- [MiroFish GitHub](https://github.com/666ghj/MiroFish)
+- [MiroFish GitHub](https://github.com/666ghj/MiroFish) - 群体智能协作思路参考来源之一
 - [CAMEL-AI 文档](https://docs.camel-ai.org/)
 - [GraphRAG 论文](https://arxiv.org/abs/2404.16130)
 

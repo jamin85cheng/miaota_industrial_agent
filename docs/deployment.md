@@ -1,6 +1,6 @@
 # 部署指南
 
-**版本**: v1.0.0-beta2 (MiroFish)
+**版本**: v1.0.0-beta2
 
 **目标读者**: 运维工程师、DevOps工程师
 
@@ -684,5 +684,5 @@ python -c "from src.tasks import task_tracker; print(task_tracker.get_stats())"
 
 ---
 
-**版本**: v1.0.0-beta2 (MiroFish) | **最后更新**: 2026-03-27
+**版本**: v1.0.0-beta2 | **最后更新**: 2026-03-27
 
