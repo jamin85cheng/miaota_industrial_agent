@@ -1,0 +1,273 @@
+# Prometheus 告警规则
+#
+# 定义系统告警条件
+
+groups:
+  # ==================== 应用告警 ====================
+  - name: miaota-app-alerts
+    rules:
+      # 应用不可用
+      - alert: AppDown
+        expr: up{job="miaota-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "应用服务不可用"
+          description: "应用服务 {{ $labels.instance }} 已停止响应超过1分钟"
+
+      # 高错误率
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5..",job="miaota-app"}[5m])) 
+          / 
+          sum(rate(http_requests_total{job="miaota-app"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "高错误率"
+          description: "应用错误率 {{ $value | humanizePercentage }} 超过5%"
+
+      # 高响应时间
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket{job="miaota-app"}[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "响应时间过长"
+          description: "P95响应时间 {{ $value | humanizeDuration }} 超过2秒"
+
+      # 内存使用过高
+      - alert: HighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="miaota-app"} 
+          / 
+          process_memory_limit_bytes{job="miaota-app"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用过高"
+          description: "应用内存使用率 {{ $value | humanizePercentage }}"
+
+  # ==================== PLC采集告警 ====================
+  - name: plc-collection-alerts
+    rules:
+      # PLC连接断开
+      - alert: PLCConnectionLost
+        expr: plc_connection_status == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PLC连接断开"
+          description: "PLC {{ $labels.plc_name }} 连接已断开超过2分钟"
+
+      # 数据采集延迟
+      - alert: DataCollectionLag
+        expr: |
+          time() - data_collection_timestamp_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据采集延迟"
+          description: "数据采集延迟 {{ $value }} 秒"
+
+      # 数据质量下降
+      - alert: DataQualityDegraded
+        expr: |
+          sum(rate(data_points_total{quality="bad"}[5m])) 
+          / 
+          sum(rate(data_points_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据质量下降"
+          description: "坏数据点比例 {{ $value | humanizePercentage }}"
+
+  # ==================== 数据库告警 ====================
+  - name: database-alerts
+    rules:
+      # InfluxDB 不可用
+      - alert: InfluxDBDown
+        expr: up{job="influxdb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "InfluxDB不可用"
+          description: "InfluxDB已停止响应"
+
+      # InfluxDB 写入失败
+      - alert: InfluxDBWriteErrors
+        expr: |
+          rate(influxdb_write_errors_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "InfluxDB写入错误"
+          description: "InfluxDB写入错误率 {{ $value }}/s"
+
+      # Redis 内存使用过高
+      - alert: RedisHighMemory
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis内存使用过高"
+          description: "Redis内存使用率 {{ $value | humanizePercentage }}"
+
+      # Redis 连接数过高
+      - alert: RedisTooManyConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis连接数过多"
+          description: "Redis当前连接数 {{ $value }}"
+
+  # ==================== 告警告警 ====================
+  - name: alert-alerts
+    rules:
+      # 告警风暴
+      - alert: AlertStorm
+        expr: |
+          sum(increase(alerts_fired_total[10m])) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "告警风暴"
+          description: "过去10分钟内触发了 {{ $value }} 条告警"
+
+      # 告警抑制过多
+      - alert: TooManySuppressedAlerts
+        expr: |
+          sum(alerts_suppressed_total) > 50
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "大量告警被抑制"
+          description: "当前有 {{ $value }} 条告警被抑制"
+
+  # ==================== 主机资源告警 ====================
+  - name: host-resource-alerts
+    rules:
+      # CPU使用率过高
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU使用率过高"
+          description: "主机 {{ $labels.instance }} CPU使用率 {{ $value }}%"
+
+      # 磁盘空间不足
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘空间不足"
+          description: "根分区剩余空间 {{ $value }}%"
+
+      # 内存不足
+      - alert: MemoryLow
+        expr: |
+          (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "内存不足"
+          description: "可用内存 {{ $value }}%"
+
+      # 磁盘IO等待过高
+      - alert: HighDiskIO
+        expr: |
+          rate(node_disk_io_time_seconds_total[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘IO等待过高"
+          description: "磁盘IO等待时间 {{ $value }}"
+
+  # ==================== 容器告警 ====================
+  - name: container-alerts
+    rules:
+      # 容器重启频繁
+      - alert: ContainerRestarting
+        expr: |
+          increase(container_restart_count[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "容器频繁重启"
+          description: "容器 {{ $labels.name }} 在过去1小时内重启了 {{ $value }} 次"
+
+      # 容器CPU限制
+      - alert: ContainerCPUThrottling
+        expr: |
+          rate(container_cpu_cfs_throttled_seconds_total[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "容器CPU受限"
+          description: "容器 {{ $labels.name }} CPU被限流 {{ $value | humanizeDuration }}/s"
+
+  # ==================== 业务告警 ====================
+  - name: business-alerts
+    rules:
+      # 告警数量激增
+      - alert: AnomalyAlertSpike
+        expr: |
+          sum(increase(rule_alerts_fired_total[1h])) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "异常告警激增"
+          description: "过去1小时内异常告警数量 {{ $value }}"
+
+      # LLM诊断失败
+      - alert: LLMDiagnosisFailure
+        expr: |
+          sum(rate(llm_diagnosis_errors_total[10m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM诊断失败率过高"
+          description: "LLM诊断错误率 {{ $value }}/s"
+
+      # 知识库检索延迟
+      - alert: KnowledgeSearchSlow
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(knowledge_search_duration_seconds_bucket[5m])) by (le)
+          ) > 5
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "知识库检索延迟"
+          description: "P95检索时间 {{ $value }} 秒"

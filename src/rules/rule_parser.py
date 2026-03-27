@@ -4,288 +4,275 @@
 """
 
 import json
+import re
 from typing import Dict, Any, List, Optional, Callable
 from pathlib import Path
 from loguru import logger
-import pandas as pd
 
 
 class RuleParser:
-    """规则解析器 - 支持多种条件类型"""
+    """规则解析器"""
     
     def __init__(self):
         self.operators = {
-            '>': lambda x, y: x > y,
-            '>=': lambda x, y: x >= y,
-            '<': lambda x, y: x < y,
-            '<=': lambda x, y: x <= y,
-            '==': lambda x, y: x == y,
-            '!=': lambda x, y: x != y,
+            '>': lambda a, b: a > b,
+            '<': lambda a, b: a < b,
+            '>=': lambda a, b: a >= b,
+            '<=': lambda a, b: a <= b,
+            '==': lambda a, b: a == b,
+            '!=': lambda a, b: a != b,
         }
     
-    def parse(self, rule_config: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_rule_file(self, file_path: str) -> List[Dict[str, Any]]:
         """
-        解析规则配置
+        解析规则配置文件
         
         Args:
-            rule_config: 单条规则的 JSON 配置
+            file_path: JSON 规则文件路径
             
         Returns:
-            包含解析后条件的字典
+            规则列表
         """
-        rule_id = rule_config.get('rule_id', 'UNKNOWN')
-        condition = rule_config.get('condition', {})
-        condition_type = condition.get('type', 'threshold')
+        path = Path(file_path)
+        if not path.exists():
+            logger.error(f"规则文件不存在：{file_path}")
+            return []
         
-        parsed_rule = {
-            'rule_id': rule_id,
-            'name': rule_config.get('name', ''),
-            'description': rule_config.get('description', ''),
-            'enabled': rule_config.get('enabled', True),
-            'condition_type': condition_type,
-            'severity': rule_config.get('severity', 'medium'),
-            'label': rule_config.get('label', '未知异常'),
-            'category': rule_config.get('category', 'general'),
-            'suggested_actions': rule_config.get('suggested_actions', []),
-            'escalation': rule_config.get('escalation', {}),
-            'executor': self._get_executor(condition_type, condition)
-        }
-        
-        return parsed_rule
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            rules = data.get('rules', [])
+            logger.info(f"成功加载 {len(rules)} 条规则")
+            
+            # 验证每条规则的结构
+            valid_rules = []
+            for rule in rules:
+                if self._validate_rule(rule):
+                    valid_rules.append(rule)
+                else:
+                    logger.warning(f"规则 {rule.get('rule_id', 'UNKNOWN')} 结构无效，已跳过")
+            
+            return valid_rules
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 解析失败：{e}")
+            return []
+        except Exception as e:
+            logger.error(f"读取规则文件失败：{e}")
+            return []
     
-    def _get_executor(self, condition_type: str, condition: Dict[str, Any]) -> Callable:
-        """根据条件类型获取执行函数"""
+    def _validate_rule(self, rule: Dict[str, Any]) -> bool:
+        """验证规则结构是否完整"""
+        required_fields = ['rule_id', 'name', 'condition']
+        for field in required_fields:
+            if field not in rule:
+                logger.warning(f"规则缺少必需字段：{field}")
+                return False
+        
+        condition = rule['condition']
+        if 'type' not in condition:
+            logger.warning("规则条件缺少 type 字段")
+            return False
+        
+        return True
+    
+    def compile_condition(self, condition: Dict[str, Any]) -> Callable[[Dict[str, Any]], bool]:
+        """
+        编译条件为可执行函数
+        
+        Args:
+            condition: 条件定义
+            
+        Returns:
+            判断函数，接收实时数据，返回布尔值
+        """
+        condition_type = condition.get('type')
         
         if condition_type == 'threshold':
-            return self._create_threshold_executor(condition)
-        
+            return self._compile_threshold(condition)
         elif condition_type == 'duration':
-            return self._create_duration_executor(condition)
-        
+            return self._compile_duration(condition)
         elif condition_type == 'rate_of_change':
-            return self._create_rate_of_change_executor(condition)
-        
+            return self._compile_rate_of_change(condition)
         elif condition_type == 'logic':
-            return self._create_logic_executor(condition)
-        
+            return self._compile_logic(condition)
         elif condition_type == 'correlation_violation':
-            return self._create_correlation_executor(condition)
-        
+            return self._compile_correlation_violation(condition)
         else:
-            logger.warning(f"未知的条件类型：{condition_type}，使用阈值判断")
-            return self._create_threshold_executor(condition)
+            logger.warning(f"不支持的条件类型：{condition_type}")
+            return lambda data: False
     
-    def _create_threshold_executor(self, condition: Dict[str, Any]) -> Callable:
-        """创建阈值判断执行器"""
-        metric = condition.get('metric')
-        operator_str = condition.get('operator', '>')
-        threshold = condition.get('threshold', 0)
+    def _compile_threshold(self, condition: Dict[str, Any]) -> Callable:
+        """编译阈值条件"""
+        metric = condition['metric']
+        operator = condition['operator']
+        threshold = condition['threshold']
         
-        operator_func = self.operators.get(operator_str)
-        if not operator_func:
-            raise ValueError(f"不支持的运算符：{operator_str}")
+        op_func = self.operators.get(operator)
+        if not op_func:
+            logger.error(f"不支持的运算符：{operator}")
+            return lambda data: False
         
-        def executor(data: pd.Series) -> bool:
-            if metric not in data.index:
+        def check(data: Dict[str, Any]) -> bool:
+            value = self._get_metric_value(data, metric)
+            if value is None:
                 return False
-            current_value = data[metric]
-            return operator_func(current_value, threshold)
+            return op_func(value, threshold)
         
-        return executor
+        return check
     
-    def _create_duration_executor(self, condition: Dict[str, Any]) -> Callable:
-        """创建持续时间判断执行器"""
-        metric = condition.get('metric')
-        operator_str = condition.get('operator', '<')
-        threshold = condition.get('threshold', 0)
+    def _compile_duration(self, condition: Dict[str, Any]) -> Callable:
+        """编译持续时间条件 (需要历史数据支持)"""
+        metric = condition['metric']
+        operator = condition['operator']
+        threshold = condition['threshold']
         duration_minutes = condition.get('duration_minutes', 10)
         
-        operator_func = self.operators.get(operator_str)
+        op_func = self.operators.get(operator)
         
-        def executor(data: pd.DataFrame) -> bool:
-            """
-            data: DataFrame，索引为时间，列为各指标
-            需要检查持续时间内是否一直满足条件
-            """
-            if metric not in data.columns:
+        def check(data: Dict[str, Any]) -> bool:
+            # 这里需要从历史数据中检查持续时间的条件
+            # 简化实现：假设 data 中包含历史数据
+            history = data.get('_history', {}).get(metric, [])
+            
+            if len(history) < duration_minutes:
                 return False
             
-            # 判断每个点是否满足条件
-            series = data[metric]
-            if operator_str == '<':
-                violation = series < threshold
-            elif operator_str == '>':
-                violation = series > threshold
-            elif operator_str == '==':
-                violation = series == threshold
-            else:
-                violation = operator_func(series, threshold)
+            # 检查最近 N 分钟的数据是否都满足条件
+            recent_values = history[-duration_minutes:]
+            for value in recent_values:
+                if not op_func(value, threshold):
+                    return False
             
-            # 计算需要的连续点数 (假设数据频率为 10 秒/点)
-            # 实际应该根据数据采集频率动态计算
-            points_per_minute = 6  # 10 秒一个点
-            required_points = int(duration_minutes * points_per_minute)
-            
-            # 使用 rolling window 检查是否有连续满足条件的情况
-            continuous_violation = violation.rolling(window=required_points, min_periods=required_points).sum()
-            
-            return (continuous_violation == required_points).any()
+            return True
         
-        return executor
+        return check
     
-    def _create_rate_of_change_executor(self, condition: Dict[str, Any]) -> Callable:
-        """创建变化率判断执行器"""
-        metric = condition.get('metric')
-        change_threshold = condition.get('change_threshold', 10)
+    def _compile_rate_of_change(self, condition: Dict[str, Any]) -> Callable:
+        """编译变化率条件"""
+        metric = condition['metric']
+        change_threshold = condition['change_threshold']
         window_minutes = condition.get('window_minutes', 5)
         
-        def executor(data: pd.DataFrame) -> bool:
-            if metric not in data.columns:
+        def check(data: Dict[str, Any]) -> bool:
+            history = data.get('_history', {}).get(metric, [])
+            
+            if len(history) < 2:
                 return False
             
-            series = data[metric]
+            current_value = history[-1]
+            past_value = history[-min(window_minutes, len(history))]
             
-            # 计算窗口内的变化量
-            points_per_minute = 6  # 假设 10 秒一个点
-            window_points = int(window_minutes * points_per_minute)
-            
-            if len(series) < window_points:
-                return False
-            
-            # 计算当前值与 window_minutes 前的差值
-            diff = series.diff(window_points)
-            
-            # 判断变化量是否超过阈值
-            return (diff.abs() > change_threshold).any()
+            change = abs(current_value - past_value)
+            return change > change_threshold
         
-        return executor
+        return check
     
-    def _create_logic_executor(self, condition: Dict[str, Any]) -> Callable:
-        """创建逻辑组合判断执行器"""
+    def _compile_logic(self, condition: Dict[str, Any]) -> Callable:
+        """编译逻辑组合条件"""
         sub_conditions = condition.get('conditions', [])
         logic = condition.get('logic', 'AND')
-        duration_minutes = condition.get('duration_minutes', 0)
         
-        # 递归解析子条件
-        sub_executors = []
+        compiled_checks = []
         for sub_cond in sub_conditions:
-            sub_executor = self._create_threshold_executor(sub_cond)
-            sub_executors.append(sub_executor)
+            check_func = self.compile_condition(sub_cond)
+            compiled_checks.append(check_func)
         
-        def executor(data: pd.DataFrame) -> bool:
-            if not sub_executors:
-                return False
+        def check(data: Dict[str, Any]) -> bool:
+            results = [check_func(data) for check_func in compiled_checks]
             
-            # 对每个时间点进行评估
-            results = []
-            timestamps = data.index
-            
-            for ts in timestamps:
-                point_data = data.loc[ts:ts]  # 单行 DataFrame
-                single_results = [exec(point_data.squeeze()) for exec in sub_executors]
-                
-                if logic == 'AND':
-                    result = all(single_results)
-                elif logic == 'OR':
-                    result = any(single_results)
-                else:
-                    result = all(single_results)
-                
-                results.append(result)
-            
-            # 如果需要持续时间判断
-            if duration_minutes > 0:
-                results_series = pd.Series(results, index=timestamps)
-                points_per_minute = 6
-                required_points = int(duration_minutes * points_per_minute)
-                continuous = results_series.rolling(window=required_points, min_periods=required_points).sum()
-                return (continuous == required_points).any()
-            else:
+            if logic == 'AND':
+                return all(results)
+            elif logic == 'OR':
                 return any(results)
+            else:
+                return False
         
-        return executor
+        return check
     
-    def _create_correlation_executor(self, condition: Dict[str, Any]) -> Callable:
-        """创建相关性违背判断执行器"""
+    def _compile_correlation_violation(self, condition: Dict[str, Any]) -> Callable:
+        """编译相关性违背条件"""
         metrics = condition.get('metrics', [])
         expected_correlation = condition.get('expected_correlation', 'positive')
-        violation_duration = condition.get('violation_duration_minutes', 15)
         
-        def executor(data: pd.DataFrame) -> bool:
+        def check(data: Dict[str, Any]) -> bool:
             if len(metrics) < 2:
                 return False
             
-            # 确保所有指标都存在
-            for m in metrics:
-                if m not in data.columns:
-                    return False
+            # 获取两个指标的历史数据
+            history_1 = data.get('_history', {}).get(metrics[0], [])
+            history_2 = data.get('_history', {}).get(metrics[1], [])
             
-            # 计算滚动相关性
-            window_size = 10  # 使用最近 10 个点计算相关性
-            if len(data) < window_size:
+            if len(history_1) < 10 or len(history_2) < 10:
                 return False
             
-            # 计算两个指标的相关性
-            metric1, metric2 = metrics[0], metrics[1]
-            rolling_corr = data[metric1].rolling(window=window_size).corr(data[metric2])
+            # 简化实现：检查最近趋势是否相反
+            recent_1 = history_1[-5:]
+            recent_2 = history_2[-5:]
             
-            # 判断是否违背预期相关性
+            trend_1 = recent_1[-1] - recent_1[0]
+            trend_2 = recent_2[-1] - recent_2[0]
+            
             if expected_correlation == 'positive':
-                violation = rolling_corr < 0  # 应为正相关但变为负相关
+                # 正相关：应该同向变化
+                return (trend_1 > 0 and trend_2 < 0) or (trend_1 < 0 and trend_2 > 0)
             elif expected_correlation == 'negative':
-                violation = rolling_corr > 0  # 应为负相关但变为正相关
-            else:
-                violation = pd.Series([False] * len(data))
+                # 负相关：应该反向变化
+                return (trend_1 > 0 and trend_2 > 0) or (trend_1 < 0 and trend_2 < 0)
             
-            # 检查持续时间
-            if violation_duration > 0:
-                points_per_minute = 6
-                required_points = int(violation_duration * points_per_minute)
-                continuous = violation.rolling(window=required_points, min_periods=required_points).sum()
-                return (continuous == required_points).any()
-            
-            return violation.any()
+            return False
         
-        return executor
+        return check
     
-    def parse_file(self, rules_file: str) -> List[Dict[str, Any]]:
-        """
-        从文件解析所有规则
+    def _get_metric_value(self, data: Dict[str, Any], metric: str) -> Optional[float]:
+        """从数据字典中获取指标值"""
+        # 支持多种数据格式
+        if metric in data:
+            value = data[metric]
+            if isinstance(value, dict):
+                return value.get('value')
+            return value
         
-        Args:
-            rules_file: JSON 规则文件路径
-            
-        Returns:
-            解析后的规则列表
-        """
-        rules_path = Path(rules_file)
-        if not rules_path.exists():
-            logger.error(f"规则文件不存在：{rules_path}")
-            return []
+        # 尝试从嵌套结构获取
+        parts = metric.split('.')
+        current = data
+        for part in parts:
+            if isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return None
         
-        with open(rules_path, 'r', encoding='utf-8') as f:
-            rules_data = json.load(f)
-        
-        rules_list = rules_data.get('rules', [])
-        parsed_rules = []
-        
-        for rule_config in rules_list:
-            try:
-                parsed_rule = self.parse(rule_config)
-                parsed_rules.append(parsed_rule)
-                logger.debug(f"解析规则：{parsed_rule['rule_id']} - {parsed_rule['name']}")
-            except Exception as e:
-                logger.error(f"解析规则失败 {rule_config.get('rule_id', 'UNKNOWN')}: {e}")
-        
-        logger.info(f"成功解析 {len(parsed_rules)} 条规则")
-        return parsed_rules
+        if isinstance(current, dict):
+            return current.get('value')
+        return current
 
 
 # 使用示例
 if __name__ == "__main__":
     parser = RuleParser()
-    rules = parser.parse_file('config/rules.json')
     
-    print(f"\n解析了 {len(rules)} 条规则:")
-    for rule in rules[:3]:  # 只显示前 3 条
-        print(f"  - {rule['rule_id']}: {rule['name']} ({rule['condition_type']})")
+    # 解析规则文件
+    rules = parser.parse_rule_file('config/rules.json')
+    
+    print(f"加载了 {len(rules)} 条规则\n")
+    
+    # 编译第一条规则的条件
+    if rules:
+        rule = rules[0]
+        print(f"规则：{rule['name']}")
+        print(f"条件类型：{rule['condition']['type']}")
+        
+        # 编译条件
+        check_func = parser.compile_condition(rule['condition'])
+        
+        # 测试数据
+        test_data = {
+            'TAG_DO_001': 1.5,
+            '_history': {
+                'TAG_DO_001': [1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8]
+            }
+        }
+        
+        result = check_func(test_data)
+        print(f"\n测试结果：{result} (期望：True)")

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miaota Industrial Agent - 工业智能监控大屏</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .glass-effect {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border-left: 4px solid;
+        }
+        
+        .metric-card.success { border-left-color: #10b981; }
+        .metric-card.warning { border-left-color: #f59e0b; }
+        .metric-card.danger { border-left-color: #ef4444; }
+        .metric-card.info { border-left-color: #3b82f6; }
+        
+        .alert-item {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .chart-container {
+            min-height: 300px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    <!-- 顶部导航 -->
+    <nav class="glass-effect sticky top-0 z-50 px-6 py-4">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <i class="fas fa-industry text-3xl text-blue-500"></i>
+                <div>
+                    <h1 class="text-2xl font-bold">Miaota Industrial Agent</h1>
+                    <p class="text-sm text-slate-400">工业智能监控与诊断系统 v1.0.0-beta1</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <!-- 系统状态 -->
+                <div class="flex items-center space-x-2">
+                    <div id="system-status-dot" class="w-3 h-3 rounded-full bg-green-500 pulse-dot"></div>
+                    <span id="system-status-text" class="text-sm text-slate-300">系统正常</span>
+                </div>
+                
+                <!-- 当前时间 -->
+                <div class="text-right">
+                    <div id="current-time" class="text-lg font-mono"></div>
+                    <div id="current-date" class="text-sm text-slate-400"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="p-6">
+        <!-- 关键指标卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <!-- 设备在线率 -->
+            <div class="metric-card info rounded-lg p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm">设备在线率</p>
+                        <p class="text-3xl font-bold mt-2" id="online-rate">98.5%</p>
+                        <p class="text-sm text-green-400 mt-1">
+                            <i class="fas fa-arrow-up"></i> +0.5%
+                        </p>
+                    </div>
+                    <div class="bg-blue-500/20 p-3 rounded-lg">
+                        <i class="fas fa-server text-blue-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 今日告警 -->
+            <div class="metric-card warning rounded-lg p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm">今日告警</p>
+                        <p class="text-3xl font-bold mt-2" id="today-alerts">12</p>
+                        <p class="text-sm text-yellow-400 mt-1">
+                            <i class="fas fa-exclamation-triangle"></i> 待处理
+                        </p>
+                    </div>
+                    <div class="bg-yellow-500/20 p-3 rounded-lg">
+                        <i class="fas fa-bell text-yellow-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 数据点采集 -->
+            <div class="metric-card success rounded-lg p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm">今日数据点</p>
+                        <p class="text-3xl font-bold mt-2" id="data-points">1.2M</p>
+                        <p class="text-sm text-green-400 mt-1">
+                            <i class="fas fa-check"></i> 采集正常
+                        </p>
+                    </div>
+                    <div class="bg-green-500/20 p-3 rounded-lg">
+                        <i class="fas fa-database text-green-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 异常检测 -->
+            <div class="metric-card danger rounded-lg p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm">检测到异常</p>
+                        <p class="text-3xl font-bold mt-2" id="anomalies">3</p>
+                        <p class="text-sm text-red-400 mt-1">
+                            <i class="fas fa-exclamation-circle"></i> 需要关注
+                        </p>
+                    </div>
+                    <div class="bg-red-500/20 p-3 rounded-lg">
+                        <i class="fas fa-bug text-red-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- 实时趋势图 -->
+            <div class="lg:col-span-2 glass-effect rounded-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">
+                        <i class="fas fa-chart-line text-blue-500 mr-2"></i>
+                        实时数据趋势
+                    </h2>
+                    <div class="flex space-x-2">
+                        <select id="metric-select" class="bg-slate-800 border border-slate-600 rounded px-3 py-1 text-sm">
+                            <option value="temperature">温度</option>
+                            <option value="pressure">压力</option>
+                            <option value="flow">流量</option>
+                        </select>
+                        <button onclick="refreshChart()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="realtime-chart" class="chart-container"></div>
+            </div>
+            
+            <!-- 告警列表 -->
+            <div class="glass-effect rounded-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">
+                        <i class="fas fa-bell text-yellow-500 mr-2"></i>
+                        实时告警
+                    </h2>
+                    <span class="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded text-xs" id="alert-count">3</span>
+                </div>
+                
+                <div id="alert-list" class="space-y-3 max-h-80 overflow-y-auto">
+                    <!-- 告警项将通过JS动态添加 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 设备状态 -->
+            <div class="glass-effect rounded-lg p-6">
+                <h2 class="text-lg font-semibold mb-4">
+                    <i class="fas fa-server text-green-500 mr-2"></i>
+                    设备状态
+                </h2>
+                <div id="device-status" class="grid grid-cols-2 gap-4">
+                    <!-- 设备状态将通过JS动态添加 -->
+                </div>
+            </div>
+            
+            <!-- 系统日志 -->
+            <div class="glass-effect rounded-lg p-6">
+                <h2 class="text-lg font-semibold mb-4">
+                    <i class="fas fa-list-alt text-purple-500 mr-2"></i>
+                    系统日志
+                </h2>
+                <div id="system-logs" class="space-y-2 max-h-48 overflow-y-auto text-sm">
+                    <!-- 日志将通过JS动态添加 -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 诊断对话框 -->
+    <div id="diagnosis-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="glass-effect rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">
+                    <i class="fas fa-stethoscope text-blue-500 mr-2"></i>
+                    智能诊断
+                </h3>
+                <button onclick="closeDiagnosis()" class="text-slate-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div id="diagnosis-content" class="space-y-4">
+                <!-- 诊断内容 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = 
+                now.toLocaleTimeString('zh-CN', { hour12: false });
+            document.getElementById('current-date').textContent = 
+                now.toLocaleDateString('zh-CN', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    weekday: 'long'
+                });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // 初始化图表
+        let realtimeChart = echarts.init(document.getElementById('realtime-chart'));
+        
+        const chartOption = {
+            backgroundColor: 'transparent',
+            grid: {
+                top: 40,
+                right: 40,
+                bottom: 40,
+                left: 60
+            },
+            xAxis: {
+                type: 'time',
+                splitLine: {
+                    show: true,
+                    lineStyle: { color: 'rgba(255,255,255,0.1)' }
+                },
+                axisLabel: { color: '#94a3b8' }
+            },
+            yAxis: {
+                type: 'value',
+                splitLine: {
+                    show: true,
+                    lineStyle: { color: 'rgba(255,255,255,0.1)' }
+                },
+                axisLabel: { color: '#94a3b8' }
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                borderColor: '#334155',
+                textStyle: { color: '#fff' }
+            },
+            series: [{
+                name: '数值',
+                type: 'line',
+                smooth: true,
+                symbol: 'none',
+                lineStyle: { color: '#3b82f6', width: 2 },
+                areaStyle: {
+                    color: {
+                        type: 'linear',
+                        x: 0, y: 0, x2: 0, y2: 1,
+                        colorStops: [
+                            { offset: 0, color: 'rgba(59, 130, 246, 0.3)' },
+                            { offset: 1, color: 'rgba(59, 130, 246, 0.0)' }
+                        ]
+                    }
+                },
+                data: []
+            }]
+        };
+        
+        realtimeChart.setOption(chartOption);
+
+        // 模拟实时数据
+        let data = [];
+        let now = new Date();
+        
+        for (let i = 0; i < 100; i++) {
+            data.push({
+                name: now.toString(),
+                value: [
+                    new Date(now - (100 - i) * 1000),
+                    Math.random() * 50 + 20
+                ]
+            });
+        }
+        
+        chartOption.series[0].data = data;
+        realtimeChart.setOption(chartOption);
+
+        // 模拟数据更新
+        setInterval(() => {
+            now = new Date();
+            data.shift();
+            data.push({
+                name: now.toString(),
+                value: [
+                    now,
+                    Math.random() * 50 + 20
+                ]
+            });
+            realtimeChart.setOption({
+                series: [{ data: data }]
+            });
+        }, 1000);
+
+        // 模拟告警数据
+        const alerts = [
+            { id: 1, level: 'critical', message: '曝气池温度过高 (45°C)', time: '2分钟前', device: 'PLC-001' },
+            { id: 2, level: 'warning', message: '溶解氧浓度偏低 (2.1 mg/L)', time: '5分钟前', device: 'PLC-002' },
+            { id: 3, level: 'info', message: '数据补传完成', time: '10分钟前', device: 'System' }
+        ];
+
+        function renderAlerts() {
+            const container = document.getElementById('alert-list');
+            container.innerHTML = alerts.map(alert => {
+                const colors = {
+                    critical: 'bg-red-500/20 border-red-500 text-red-400',
+                    warning: 'bg-yellow-500/20 border-yellow-500 text-yellow-400',
+                    info: 'bg-blue-500/20 border-blue-500 text-blue-400'
+                };
+                const icons = {
+                    critical: 'fa-exclamation-circle',
+                    warning: 'fa-exclamation-triangle',
+                    info: 'fa-info-circle'
+                };
+                
+                return `
+                    <div class="alert-item ${colors[alert.level]} border rounded-lg p-3 cursor-pointer hover:opacity-80 transition-opacity"
+                         onclick="showDiagnosis(${alert.id})">
+                        <div class="flex items-start space-x-3">
+                            <i class="fas ${icons[alert.level]} mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-medium text-sm">${alert.message}</p>
+                                <div class="flex justify-between items-center mt-2 text-xs opacity-80">
+                                    <span>${alert.device}</span>
+                                    <span>${alert.time}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('alert-count').textContent = alerts.length;
+        }
+        
+        renderAlerts();
+
+        // 设备状态
+        const devices = [
+            { name: 'PLC-001', status: 'online', type: 'S7-1200', lastSeen: '刚刚' },
+            { name: 'PLC-002', status: 'online', type: 'S7-1200', lastSeen: '1分钟前' },
+            { name: 'PLC-003', status: 'warning', type: 'Modbus', lastSeen: '5分钟前' },
+            { name: 'PLC-004', status: 'offline', type: 'S7-1500', lastSeen: '1小时前' }
+        ];
+
+        function renderDevices() {
+            const container = document.getElementById('device-status');
+            container.innerHTML = devices.map(device => {
+                const statusColors = {
+                    online: 'bg-green-500',
+                    warning: 'bg-yellow-500',
+                    offline: 'bg-red-500'
+                };
+                
+                return `
+                    <div class="bg-slate-800/50 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-2 h-2 rounded-full ${statusColors[device.status]}"></div>
+                                <span class="font-medium">${device.name}</span>
+                            </div>
+                            <span class="text-xs text-slate-400">${device.type}</span>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-500">
+                            最后活跃: ${device.lastSeen}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        renderDevices();
+
+        // 系统日志
+        const logs = [
+            { time: '14:23:05', level: 'info', message: '数据采集正常' },
+            { time: '14:22:30', level: 'warning', message: 'PLC-003 响应延迟' },
+            { time: '14:20:15', level: 'info', message: '规则引擎执行完成' },
+            { time: '14:18:42', level: 'error', message: 'InfluxDB 写入失败' },
+            { time: '14:15:00', level: 'info', message: '系统启动完成' }
+        ];
+
+        function renderLogs() {
+            const container = document.getElementById('system-logs');
+            container.innerHTML = logs.map(log => {
+                const colors = {
+                    info: 'text-blue-400',
+                    warning: 'text-yellow-400',
+                    error: 'text-red-400'
+                };
+                
+                return `
+                    <div class="flex items-start space-x-2 py-1 border-b border-slate-700/50 last:border-0">
+                        <span class="text-slate-500 font-mono text-xs">${log.time}</span>
+                        <span class="${colors[log.level]} text-xs uppercase">[${log.level}]</span>
+                        <span class="text-slate-300">${log.message}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        renderLogs();
+
+        // 诊断对话框
+        function showDiagnosis(alertId) {
+            const modal = document.getElementById('diagnosis-modal');
+            const content = document.getElementById('diagnosis-content');
+            
+            // 模拟诊断结果
+            content.innerHTML = `
+                <div class="bg-slate-800 rounded-lg p-4">
+                    <h4 class="font-bold text-lg mb-2">根因分析</h4>
+                    <p class="text-slate-300">根据症状分析，可能的原因是曝气盘部分堵塞，导致曝气效率下降。</p>
+                    
+                    <div class="mt-4">
+                        <h5 class="font-semibold mb-2">置信度: 85%</h5>
+                        <div class="w-full bg-slate-700 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-800 rounded-lg p-4">
+                    <h4 class="font-bold text-lg mb-2">建议操作</h4>
+                    <ul class="list-disc list-inside space-y-2 text-slate-300">
+                        <li>检查并清洗曝气盘</li>
+                        <li>检查风机运行状态</li>
+                        <li>校准DO传感器</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-slate-800 rounded-lg p-4">
+                    <h4 class="font-bold text-lg mb-2">可能需要的备件</h4>
+                    <ul class="list-disc list-inside space-y-2 text-slate-300">
+                        <li>曝气盘 × 5</li>
+                        <li>风机滤网 × 1</li>
+                    </ul>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button class="flex-1 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-medium">
+                        <i class="fas fa-check mr-2"></i>确认并创建工单
+                    </button>
+                    <button class="flex-1 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded font-medium">
+                        <i class="fas fa-times mr-2"></i>忽略
+                    </button>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeDiagnosis() {
+            const modal = document.getElementById('diagnosis-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // 响应式调整
+        window.addEventListener('resize', () => {
+            realtimeChart.resize();
+        });
+
+        // 刷新图表
+        function refreshChart() {
+            // 重新加载数据
+            console.log('刷新图表...');
+        }
+
+        // WebSocket连接（示例）
+        // const ws = new WebSocket('ws://localhost:8000/ws/realtime');
+        // ws.onmessage = (event) => {
+        //     const data = JSON.parse(event.data);
+        //     // 更新UI
+        // };
+    </script>
+</body>
+</html>

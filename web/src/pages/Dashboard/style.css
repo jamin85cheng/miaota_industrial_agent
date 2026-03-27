@@ -1,0 +1,56 @@
+/* 监控大屏样式 */
+
+.dashboard-page {
+  padding: 0;
+}
+
+.dashboard-card {
+  height: 100%;
+}
+
+.dashboard-card .ant-card-body {
+  padding: 16px;
+}
+
+/* 设备卡片 */
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.device-card {
+  transition: all 0.3s;
+}
+
+.device-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.device-card-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.device-info {
+  flex: 1;
+}
+
+.device-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.device-tags {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .device-grid {
+    grid-template-columns: 1fr;
+  }
+}

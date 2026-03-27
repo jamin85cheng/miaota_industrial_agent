@@ -1,0 +1,104 @@
+# Prometheus 配置
+# 
+# 监控所有服务并收集指标
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: 'production'
+    cluster: 'miaota-cluster'
+
+# 告警规则文件
+rule_files:
+  - '/etc/prometheus/alerts.yml'
+
+# 告警管理器配置
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# 抓取配置
+scrape_configs:
+  # Prometheus 自身
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prometheus'
+
+  # 应用服务
+  - job_name: 'miaota-app'
+    consul_sd_configs:
+      - server: 'consul:8500'
+        services: ['miaota-app']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: '${1}'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Nginx
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']
+        labels:
+          service: 'nginx'
+
+  # InfluxDB
+  - job_name: 'influxdb'
+    static_configs:
+      - targets: ['influxdb:8086']
+        labels:
+          service: 'influxdb'
+    metrics_path: '/metrics'
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:9121']
+        labels:
+          service: 'redis'
+
+  # Node Exporter (主机监控)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'node'
+
+  # cAdvisor (容器监控)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service: 'cadvisor'
+
+  # Blackbox Exporter (网络探测)
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - 'http://app:8000/health'
+        - 'http://influxdb:8086/health'
+        - 'http://grafana:3000/api/health'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+# 远程写入 (可选)
+# remote_write:
+#   - url: "http://remote-storage:9090/api/v1/write"
+
+# 远程读取 (可选)
+# remote_read:
+#   - url: "http://remote-storage:9090/api/v1/read"

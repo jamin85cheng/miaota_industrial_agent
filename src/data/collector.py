@@ -1,30 +1,35 @@
 """
-PLC 数据采集器
-支持西门子 S7、Modbus TCP 等协议
+PLC 数据采集模块
+支持西门子 S7 协议和 Modbus TCP 协议
 """
 
 import time
 import threading
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 from loguru import logger
 import pandas as pd
 
-# 尝试导入 PLC 库，如果未安装则使用模拟模式
+from src.utils.thread_safe import ConnectionGuard, SafeValue
+from src.utils.error_handler import retry, ApplicationError, ExternalServiceError
+
+# PLC 通信库 (需要安装：pip install python-snap7 pymodbus)
 try:
-    import snap7
+    import snap7  # 西门子 S7
     from snap7.util import *
     SNAP7_AVAILABLE = True
 except ImportError:
     SNAP7_AVAILABLE = False
-    logger.warning("python-snap7 未安装，使用模拟数据模式")
+    logger.warning("snap7 未安装，西门子 S7 采集功能不可用")
 
 try:
     from pymodbus.client import ModbusTcpClient
-    PYMODBUS_AVAILABLE = True
+    from pymodbus.constants import Endian
+    from pymodbus.payload import BinaryPayloadDecoder
+    MODBUS_AVAILABLE = True
 except ImportError:
-    PYMODBUS_AVAILABLE = False
-    logger.warning("pymodbus 未安装，Modbus 功能不可用")
+    MODBUS_AVAILABLE = False
+    logger.warning("pymodbus 未安装，Modbus 采集功能不可用")
 
 
 class PLCCollector:
@@ -38,369 +43,362 @@ class PLCCollector:
             config: 配置字典，包含 PLC 连接参数
         """
         self.config = config
-        self.plc_type = config.get('type', 's7')
-        self.host = config.get('host', '127.0.0.1')
-        self.port = config.get('port', 102)
+        self.plc_type = config.get('type', 's7')  # 's7' 或 'modbus'
+        self._client_guard = ConnectionGuard(f"PLC-{self.plc_type}")
+        self._config = config
+        self.scan_interval = config.get('scan_interval', 10)  # 采集间隔 (秒)
+        self.tags = config.get('tags', [])  # 要采集的点位列表
+        self.callbacks: List[Callable] = []  # 数据回调函数列表
         
-        # 采集控制
-        self.scan_interval = config.get('scan_interval', 10)  # 秒
-        self.running = False
-        self.collection_thread: Optional[threading.Thread] = None
+        self._running = SafeValue(False)
+        self._thread: Optional[threading.Thread] = None
+        self._reconnect_attempts = SafeValue(0)
+        self._max_reconnect_attempts = 5
+        self._reconnect_delay = 5  # 秒
         
-        # 数据回调
-        self.data_callbacks: List[Callable[[Dict[str, Any]], None]] = []
-        
-        # 最新数据缓存
-        self.latest_data: Dict[str, Any] = {}
-        self.data_history: List[Dict[str, Any]] = []
-        self.max_history_size = 1000
-        
-        # 连接状态
-        self.connected = False
-        self.reconnect_attempts = 0
-        self.max_reconnect_attempts = config.get('max_reconnect_attempts', 5)
-        
-        # 初始化 PLC 客户端
-        self._init_plc_client()
-        
-        logger.info(f"PLCCollector 初始化完成：{self.plc_type}@{self.host}:{self.port}")
-    
-    def _init_plc_client(self):
-        """初始化 PLC 客户端"""
-        if self.plc_type == 's7':
-            if SNAP7_AVAILABLE:
-                self.client = snap7.client.Client()
-            else:
-                self.client = None
-                logger.info("S7 客户端将使用模拟模式")
-        
-        elif self.plc_type == 'modbus':
-            if PYMODBUS_AVAILABLE:
-                self.client = ModbusTcpClient(self.host, port=self.port)
-            else:
-                self.client = None
-                logger.info("Modbus 客户端将使用模拟模式")
-        
-        else:
-            raise ValueError(f"不支持的 PLC 类型：{self.plc_type}")
+        logger.info(f"PLC 采集器已初始化 (类型：{self.plc_type})")
     
     def connect(self) -> bool:
         """连接到 PLC"""
         try:
             if self.plc_type == 's7':
-                if self.client:
-                    rack = self.config.get('rack', 0)
-                    slot = self.config.get('slot', 1)
-                    self.client.connect(self.host, rack, slot, self.port)
-                    self.connected = self.client.get_connected()
-                else:
-                    # 模拟模式
-                    logger.info("模拟模式：连接到虚拟 PLC")
-                    self.connected = True
-            
+                return self._connect_s7()
             elif self.plc_type == 'modbus':
-                if self.client:
-                    self.connected = self.client.connect()
-                else:
-                    logger.info("模拟模式：连接到虚拟 Modbus")
-                    self.connected = True
-            
-            if self.connected:
-                logger.info(f"成功连接到 PLC {self.host}:{self.port}")
-                self.reconnect_attempts = 0
+                return self._connect_modbus()
             else:
-                logger.warning(f"连接 PLC 失败")
-            
-            return self.connected
-            
+                logger.error(f"不支持的 PLC 类型：{self.plc_type}")
+                return False
         except Exception as e:
-            logger.error(f"连接 PLC 异常：{e}")
-            self.connected = False
+            logger.error(f"连接 PLC 失败：{e}")
+            return False
+    
+    def _connect_s7(self) -> bool:
+        """连接西门子 S7 PLC"""
+        if not SNAP7_AVAILABLE:
+            logger.error("snap7 库未安装")
+            return False
+        
+        try:
+            self.client = snap7.client.Client()
+            
+            # S7-1200/1500 连接参数
+            host = self.config.get('host', '192.168.1.100')
+            port = self.config.get('port', 102)
+            rack = self.config.get('rack', 0)
+            slot = self.config.get('slot', 1)
+            
+            self.client.connect(host, rack, slot, port)
+            
+            if self.client.is_connected():
+                self.is_connected = True
+                logger.info(f"成功连接到西门子 S7 PLC ({host}:{port})")
+                return True
+            else:
+                logger.error("S7 连接失败")
+                return False
+                
+        except Exception as e:
+            logger.error(f"S7 连接异常：{e}")
+            return False
+    
+    def _connect_modbus(self) -> bool:
+        """连接 Modbus TCP 设备"""
+        if not MODBUS_AVAILABLE:
+            logger.error("pymodbus 库未安装")
+            return False
+        
+        try:
+            host = self.config.get('host', '192.168.1.101')
+            port = self.config.get('port', 502)
+            
+            self.client = ModbusTcpClient(host, port=port)
+            
+            if self.client.connect():
+                self.is_connected = True
+                logger.info(f"成功连接到 Modbus 设备 ({host}:{port})")
+                return True
+            else:
+                logger.error("Modbus 连接失败")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Modbus 连接异常：{e}")
             return False
     
     def disconnect(self):
-        """断开连接"""
-        try:
-            if self.plc_type == 's7' and self.client:
-                self.client.disconnect()
-            elif self.plc_type == 'modbus' and self.client:
-                self.client.close()
-            
-            self.connected = False
-            logger.info("已断开 PLC 连接")
-        except Exception as e:
-            logger.error(f"断开连接异常：{e}")
+        """断开 PLC 连接"""
+        def cleanup_client(client):
+            if self.plc_type == 's7':
+                client.disconnect()
+            elif self.plc_type == 'modbus':
+                client.close()
+        
+        self._client_guard.disconnect(cleanup_client)
+        self._running.set(False)
     
-    def read_data(self, addresses: Dict[str, str]) -> Dict[str, Any]:
+    def read_tag(self, tag_config: Dict[str, Any]) -> Optional[float]:
         """
-        读取 PLC 数据
+        读取单个点位数据
         
         Args:
-            addresses: 点位地址映射 {tag_id: plc_address}
-                      例如：{"TAG_DO_001": "MW100", "TAG_Pump_001": "Q0.0"}
-        
+            tag_config: 点位配置，包含地址、数据类型等
+            
         Returns:
-            读取的数据字典 {tag_id: value}
+            读取的数值，失败返回 None
         """
-        if not self.connected:
-            if not self.connect():
-                return {}
-        
-        data = {}
+        if not self.is_connected:
+            logger.warning("PLC 未连接")
+            return None
         
         try:
+            address = tag_config.get('address', '')
+            data_type = tag_config.get('data_type', 'FLOAT')
+            
             if self.plc_type == 's7':
-                data = self._read_s7(addresses)
+                return self._read_s7_tag(address, data_type)
             elif self.plc_type == 'modbus':
-                data = self._read_modbus(addresses)
+                return self._read_modbus_tag(address, data_type)
             else:
-                data = self._read_simulated(addresses)
-            
-            # 更新缓存
-            timestamp = datetime.now().isoformat()
-            self.latest_data = {
-                'timestamp': timestamp,
-                'values': data
-            }
-            
-            # 保存到历史
-            self.data_history.append(self.latest_data)
-            if len(self.data_history) > self.max_history_size:
-                self.data_history.pop(0)
-            
-            # 触发回调
-            for callback in self.data_callbacks:
-                try:
-                    callback(self.latest_data)
-                except Exception as e:
-                    logger.error(f"数据回调执行失败：{e}")
-            
-            return data
-            
+                return None
+                
         except Exception as e:
-            logger.error(f"读取 PLC 数据异常：{e}")
-            self.connected = False
-            return {}
+            logger.error(f"读取点位 {address} 失败：{e}")
+            return None
     
-    def _read_s7(self, addresses: Dict[str, str]) -> Dict[str, Any]:
-        """读取西门子 S7 PLC 数据"""
-        if not self.client:
-            return self._read_simulated(addresses)
+    def _read_s7_tag(self, address: str, data_type: str) -> Optional[float]:
+        """读取西门子 S7 点位"""
+        # 解析地址，如 "MW100", "DB1.DBD4"
+        if address.startswith('DB'):
+            # DB 块地址
+            parts = address.split('.')
+            db_number = int(parts[0][2:])
+            offset = int(parts[1][3:]) if 'D' in parts[1] else int(parts[1][1:])
+            
+            if data_type == 'FLOAT':
+                data = self.client.db_read(db_number, offset, 4)
+                return float.from_bytes(data, byteorder='big')
+            elif data_type == 'INT':
+                data = self.client.db_read(db_number, offset, 2)
+                return int.from_bytes(data, byteorder='big')
+            elif data_type == 'BOOL':
+                bit_offset = int(address.split('.')[2]) if len(address.split('.')) > 2 else 0
+                data = self.client.db_read(db_number, 0, 1)
+                return bool(data[0] & (1 << bit_offset))
         
-        data = {}
+        elif address.startswith('M'):
+            # M 存储区
+            if 'W' in address:  # MW
+                offset = int(address[1:].split('W')[1])
+                if data_type == 'FLOAT':
+                    data = self.client.read_area(snap7.types.Areas.MK, 0, offset, 4)
+                    return float.from_bytes(data, byteorder='big')
+                elif data_type == 'INT':
+                    data = self.client.read_area(snap7.types.Areas.MK, 0, offset, 2)
+                    return int.from_bytes(data, byteorder='big')
+            elif 'X' in address:  # MX (位)
+                byte_offset = int(address.split('X')[0][1:])
+                bit_offset = int(address.split('X')[1])
+                data = self.client.read_area(snap7.types.Areas.MK, 0, byte_offset, 1)
+                return bool(data[0] & (1 << bit_offset))
         
-        for tag_id, address in addresses.items():
-            try:
-                # 解析地址类型
-                if address.startswith('MW'):
-                    # 字寄存器 (16 位整数)
-                    db_number = 0
-                    offset = int(address[2:])
-                    value = self.client.db_read(db_number, offset, 2)
-                    data[tag_id] = int.from_bytes(value, byteorder='big', signed=True)
-                
-                elif address.startswith('MD'):
-                    # 双字寄存器 (32 位浮点数)
-                    db_number = 0
-                    offset = int(address[2:])
-                    value = self.client.db_read(db_number, offset, 4)
-                    data[tag_id] = float.from_bytes(value, byteorder='big')
-                
-                elif address.startswith('Q') or address.startswith('I'):
-                    # 输入/输出位
-                    # 简化处理，实际需要根据具体地址解析
-                    data[tag_id] = False  # 占位符
-                
-                else:
-                    logger.warning(f"未知地址格式：{address}")
-                    data[tag_id] = None
-                    
-            except Exception as e:
-                logger.error(f"读取地址 {address} 失败：{e}")
-                data[tag_id] = None
+        elif address.startswith('Q') or address.startswith('I'):
+            # 输出/输入区
+            area = snap7.types.Areas.PE if address.startswith('I') else snap7.types.Areas.PA
+            if 'W' in address:
+                offset = int(address[1:].split('W')[1])
+                data = self.client.read_area(area, 0, offset, 4)
+                return float.from_bytes(data, byteorder='big')
         
-        return data
+        logger.warning(f"不支持的 S7 地址格式：{address}")
+        return None
     
-    def _read_modbus(self, addresses: Dict[str, str]) -> Dict[str, Any]:
-        """读取 Modbus PLC 数据"""
-        if not self.client:
-            return self._read_simulated(addresses)
-        
-        data = {}
-        
-        for tag_id, address in addresses.items():
-            try:
-                # 假设地址为保持寄存器 (4xxxx)
-                register_addr = int(address)
-                result = self.client.read_holding_registers(register_addr, 1, slave=1)
-                
-                if not result.isError():
-                    data[tag_id] = result.registers[0]
-                else:
-                    data[tag_id] = None
-                    
-            except Exception as e:
-                logger.error(f"读取 Modbus 地址 {address} 失败：{e}")
-                data[tag_id] = None
-        
-        return data
-    
-    def _read_simulated(self, addresses: Dict[str, str]) -> Dict[str, Any]:
-        """生成模拟数据 (用于测试)"""
-        import random
-        
-        data = {}
-        for tag_id, address in addresses.items():
-            # 根据 tag_id 生成有意义的模拟数据
-            if 'DO' in tag_id:
-                # 溶解氧：2.0-8.0 之间波动
-                data[tag_id] = round(random.uniform(2.0, 8.0), 2)
-            elif 'PH' in tag_id:
-                # pH 值：6.5-8.5 之间波动
-                data[tag_id] = round(random.uniform(6.5, 8.5), 2)
-            elif 'COD' in tag_id:
-                # COD: 50-120 之间波动
-                data[tag_id] = round(random.uniform(50, 120), 1)
-            elif 'Pump' in tag_id and 'Status' in tag_id:
-                # 泵状态：90% 概率运行
-                data[tag_id] = random.random() > 0.1
-            elif 'Flow' in tag_id:
-                # 流量：100-150 之间波动
-                data[tag_id] = round(random.uniform(100, 150), 1)
-            elif 'Temp' in tag_id:
-                # 温度：20-35 之间波动
-                data[tag_id] = round(random.uniform(20, 35), 1)
-            elif 'Pressure' in tag_id:
-                # 压力：0.3-0.7 之间波动
-                data[tag_id] = round(random.uniform(0.3, 0.7), 2)
+    def _read_modbus_tag(self, address: str, data_type: str) -> Optional[float]:
+        """读取 Modbus 点位"""
+        try:
+            # 解析地址，如 "40001" (保持寄存器)
+            register_address = int(address) - 40001
+            
+            if data_type == 'FLOAT':
+                result = self.client.read_holding_registers(register_address, 2, slave=1)
+                if result.isError():
+                    return None
+                decoder = BinaryPayloadDecoder.fromRegisters(
+                    result.registers, 
+                    byteorder=Endian.Big, 
+                    wordorder=Endian.Big
+                )
+                return decoder.decode_32bit_float()
+            
+            elif data_type == 'INT':
+                result = self.client.read_holding_registers(register_address, 1, slave=1)
+                if result.isError():
+                    return None
+                return result.registers[0]
+            
+            elif data_type == 'BOOL':
+                result = self.client.read_coils(register_address, 1, slave=1)
+                if result.isError():
+                    return None
+                return result.bits[0]
+            
             else:
-                # 默认随机值
-                data[tag_id] = round(random.uniform(0, 100), 2)
+                logger.warning(f"不支持的 Modbus 数据类型：{data_type}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Modbus 读取失败：{e}")
+            return None
+    
+    def read_all_tags(self) -> Dict[str, Any]:
+        """
+        读取所有配置的点位
+        
+        Returns:
+            数据字典 {tag_id: value}
+        """
+        data = {}
+        
+        for tag in self.tags:
+            tag_id = tag.get('tag_id')
+            value = self.read_tag(tag)
+            
+            if value is not None:
+                data[tag_id] = {
+                    'value': value,
+                    'timestamp': datetime.now().isoformat(),
+                    'quality': 'good'
+                }
+            else:
+                data[tag_id] = {
+                    'value': None,
+                    'timestamp': datetime.now().isoformat(),
+                    'quality': 'bad'
+                }
         
         return data
     
-    def start_collection(self, addresses: Dict[str, str]):
-        """启动连续采集"""
-        if self.running:
-            logger.warning("采集已在运行中")
+    def start_continuous_collection(self, callback: Callable[[Dict[str, Any]], None]):
+        """
+        启动连续采集
+        
+        Args:
+            callback: 数据回调函数，接收数据字典
+        """
+        if self._running.get():
+            logger.warning("采集器已在运行")
             return
         
-        self.running = True
-        self.addresses = addresses
+        self.callbacks.append(callback)
+        self._running.set(True)
+        self._reconnect_attempts.set(0)
         
-        def collection_loop():
-            logger.info("开始连续数据采集...")
-            while self.running:
-                start_time = time.time()
-                
-                # 读取数据
-                data = self.read_data(addresses)
-                
-                # 计算耗时
-                elapsed = time.time() - start_time
-                sleep_time = max(0, self.scan_interval - elapsed)
-                
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-            
-            logger.info("数据采集已停止")
+        self._thread = threading.Thread(target=self._collection_loop, daemon=True)
+        self._thread.start()
         
-        self.collection_thread = threading.Thread(target=collection_loop, daemon=True)
-        self.collection_thread.start()
+        logger.info(f"连续采集已启动 (间隔：{self.scan_interval}秒)")
     
-    def stop_collection(self):
+    def _collection_loop(self):
+        """采集循环（带自动重连）"""
+        import time
+        
+        while self._running.get():
+            try:
+                # 检查连接状态
+                if not self._client_guard.is_connected:
+                    if not self._try_reconnect():
+                        time.sleep(self._reconnect_delay)
+                        continue
+                
+                # 批量读取所有点位
+                data = self.read_all_tags()
+                
+                # 重置重连计数
+                self._reconnect_attempts.set(0)
+                
+                # 调用回调函数
+                for callback in self.callbacks:
+                    try:
+                        callback(data)
+                    except Exception as e:
+                        logger.error(f"回调函数执行失败：{e}")
+                
+                time.sleep(self.scan_interval)
+                
+            except Exception as e:
+                logger.error(f"采集循环异常：{e}")
+                self.disconnect()
+                time.sleep(self._reconnect_delay)
+    
+    def _try_reconnect(self) -> bool:
+        """尝试重连（带指数退避）"""
+        attempts = self._reconnect_attempts.get()
+        
+        if attempts >= self._max_reconnect_attempts:
+            logger.error(f"重连次数超过最大值 {self._max_reconnect_attempts}，放弃连接")
+            self._reconnect_attempts.set(0)
+            return False
+        
+        self._reconnect_attempts.set(attempts + 1)
+        
+        # 指数退避延迟
+        delay = min(self._reconnect_delay * (2 ** attempts), 60)
+        logger.info(f"尝试重连 {attempts + 1}/{self._max_reconnect_attempts}，{delay}s 后重试...")
+        
+        import time
+        time.sleep(delay)
+        
+        return self.connect()
+    
+    def stop_continuous_collection(self):
         """停止连续采集"""
-        self.running = False
-        if self.collection_thread:
-            self.collection_thread.join(timeout=5)
-            self.collection_thread = None
-        logger.info("数据采集已停止")
-    
-    def register_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """注册数据回调函数"""
-        self.data_callbacks.append(callback)
-        logger.info(f"注册数据回调，当前共 {len(self.data_callbacks)} 个回调")
-    
-    def get_latest_data(self) -> Dict[str, Any]:
-        """获取最新数据"""
-        return self.latest_data
-    
-    def get_historical_data(self, minutes: int = 60) -> pd.DataFrame:
-        """
-        获取历史数据
-        
-        Args:
-            minutes: 获取最近多少分钟的数据
-            
-        Returns:
-            DataFrame，索引为时间，列为各点位值
-        """
-        if not self.data_history:
-            return pd.DataFrame()
-        
-        # 转换为 DataFrame
-        records = []
-        for record in self.data_history:
-            row = {'timestamp': record['timestamp']}
-            row.update(record.get('values', {}))
-            records.append(row)
-        
-        df = pd.DataFrame(records)
-        if 'timestamp' in df.columns:
-            df.set_index('timestamp', inplace=True)
-        
-        # 返回指定时间范围的数据
-        cutoff_idx = max(0, len(df) - int(minutes * 60 / self.scan_interval))
-        return df.iloc[cutoff_idx:]
-    
-    def __del__(self):
-        """析构函数"""
-        self.stop_collection()
+        self._running.set(False)
+        if self._thread:
+            self._thread.join(timeout=10)
         self.disconnect()
+        logger.info("连续采集已停止")
+    
+    def reconnect(self):
+        """重新连接 PLC"""
+        self.disconnect()
+        time.sleep(1)
+        self.connect()
 
 
 # 使用示例
 if __name__ == "__main__":
-    # 配置
+    # 配置示例
     config = {
         'type': 's7',
         'host': '192.168.1.100',
         'port': 102,
         'rack': 0,
         'slot': 1,
-        'scan_interval': 5
+        'scan_interval': 10,
+        'tags': [
+            {'tag_id': 'TAG_DO_001', 'address': 'MW100', 'data_type': 'FLOAT'},
+            {'tag_id': 'TAG_PH_001', 'address': 'MW104', 'data_type': 'FLOAT'},
+            {'tag_id': 'TAG_Pump_001', 'address': 'Q0.0', 'data_type': 'BOOL'}
+        ]
     }
     
-    # 定义要采集的地址
-    addresses = {
-        'TAG_DO_001': 'MD100',
-        'TAG_PH_001': 'MD104',
-        'TAG_COD_001': 'MD108',
-        'TAG_Pump_001_Status': 'Q0.0',
-        'TAG_Flow_001': 'MD112'
-    }
-    
-    # 创建采集器
     collector = PLCCollector(config)
     
-    # 定义回调函数
-    def on_data_received(data):
-        print(f"\n收到数据 @ {data['timestamp']}:")
-        for tag, value in data['values'].items():
-            print(f"  {tag}: {value}")
-    
-    collector.register_callback(on_data_received)
-    
-    # 启动采集
-    try:
-        collector.start_collection(addresses)
-        print("采集已启动，按 Ctrl+C 停止...")
+    # 连接并读取数据
+    if collector.connect():
+        data = collector.read_all_tags()
+        print("采集到的数据:")
+        for tag_id, info in data.items():
+            print(f"  {tag_id}: {info['value']} ({info['quality']})")
         
-        # 运行 60 秒
-        time.sleep(60)
+        # 启动连续采集
+        def on_data_received(data):
+            print(f"\n[{datetime.now()}] 新数据到达:")
+            for tag_id, info in data.items():
+                print(f"  {tag_id}: {info['value']}")
         
-    except KeyboardInterrupt:
-        print("\n用户中断")
-    finally:
-        collector.stop_collection()
+        collector.start_continuous_collection(on_data_received)
+        
+        # 运行 30 秒后停止
+        time.sleep(30)
+        collector.stop_continuous_collection()
         collector.disconnect()

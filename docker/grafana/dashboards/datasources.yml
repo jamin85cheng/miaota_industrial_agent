@@ -1,0 +1,50 @@
+# Grafana 数据源配置
+
+apiVersion: 1
+
+datasources:
+  # Prometheus 数据源
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+
+  # InfluxDB 数据源
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: industrial_data
+    user: ${INFLUXDB_USER}
+    jsonData:
+      version: Flux
+      organization: miaota
+      defaultBucket: industrial_data
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUXDB_TOKEN}
+
+  # Redis 数据源
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis://redis:6379
+    jsonData:
+      client: standalone
+      poolSize: 5
+      timeout: 10
+
+  # Alertmanager 数据源
+  - name: Alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData:
+      implementation: prometheus
