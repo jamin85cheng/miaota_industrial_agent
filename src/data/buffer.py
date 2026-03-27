@@ -410,11 +410,16 @@ class DataBuffer:
         
         # 尝试写入
         try:
-            success, failed = await asyncio.get_event_loop().run_in_executor(
-                None, 
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
                 storage_backend.write_batch,
                 storage_points
             )
+            if isinstance(result, tuple):
+                success, failed = result
+            else:
+                success = int(result or 0)
+                failed = max(len(storage_points) - success, 0)
             
             if success > 0:
                 # 删除已成功的

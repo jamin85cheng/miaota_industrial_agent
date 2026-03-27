@@ -4,7 +4,7 @@
 实现知识搜索、智能诊断等接口
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 

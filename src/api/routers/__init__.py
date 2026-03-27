@@ -1,7 +1,11 @@
-"""
-API路由模块
-"""
+"""API router package."""
 
-from . import health, devices, collection, alerts, analysis, knowledge
-
-__all__ = ["health", "devices", "collection", "alerts", "analysis", "knowledge"]
+__all__ = [
+    "health",
+    "devices",
+    "collection",
+    "alerts",
+    "analysis",
+    "knowledge",
+    "diagnosis_v2",
+]

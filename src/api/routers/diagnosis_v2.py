@@ -34,7 +34,7 @@ class DiagnosisRequestV2(BaseModel):
     use_multi_agent: bool = Field(True, description="是否使用多智能体诊断")
     use_graph_rag: bool = Field(True, description="是否使用知识图谱增强")
     use_camel: bool = Field(False, description="是否使用CAMEL社会协作")
-    priority: str = Field("normal", regex="^(critical|high|normal|low)$")
+    priority: str = Field("normal", pattern=r"^(critical|high|normal|low)$")
 
 
 class DiagnosisResponseV2(BaseModel):

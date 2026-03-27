@@ -30,7 +30,7 @@ class DataQueryRequest(BaseModel):
     tags: List[str] = Field(..., min_items=1)
     start_time: datetime
     end_time: datetime
-    aggregation: Optional[str] = Field("raw", regex="^(raw|mean|sum|min|max)$")
+    aggregation: Optional[str] = Field("raw", pattern=r"^(raw|mean|sum|min|max)$")
     interval: Optional[str] = None
 
 

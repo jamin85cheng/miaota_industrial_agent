@@ -32,6 +32,11 @@ class HealthCheckResult:
     details: Dict[str, Any] = field(default_factory=dict)
     checked_at: datetime = field(default_factory=datetime.utcnow)
 
+    @property
+    def response_time(self) -> float:
+        """Backward-compatible seconds-based response time."""
+        return self.response_time_ms / 1000.0
+
 
 class HealthChecker:
     """
@@ -130,6 +135,10 @@ class HealthChecker:
                 self._last_results[check_name] = result
         
         return results
+
+    async def check_all(self) -> Dict[str, HealthCheckResult]:
+        """Backward-compatible async wrapper used by older routers."""
+        return await asyncio.to_thread(self.check)
     
     def get_overall_status(self) -> HealthStatus:
         """获取整体健康状态"""
@@ -208,8 +217,10 @@ def check_database():
 def check_disk_space():
     """检查磁盘空间"""
     try:
+        import os
         import shutil
-        stat = shutil.disk_usage("/")
+
+        stat = shutil.disk_usage(os.getcwd())
         free_gb = stat.free / (1024**3)
         total_gb = stat.total / (1024**3)
         used_percent = (stat.used / stat.total) * 100

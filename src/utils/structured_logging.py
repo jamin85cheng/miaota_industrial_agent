@@ -127,7 +127,7 @@ class StructuredLogger:
         # 添加JSON格式处理器
         logger.add(
             sys.stdout,
-            format=self._format_message,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
             level="DEBUG",
             serialize=False
         )
@@ -135,11 +135,11 @@ class StructuredLogger:
         # 添加文件处理器
         logger.add(
             "logs/app_{time:YYYY-MM-DD}.jsonl",
-            format="{message}",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
             level="INFO",
             rotation="100 MB",
             retention="30 days",
-            compression="gzip",
+            compression="gz",
             serialize=False
         )
     

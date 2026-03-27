@@ -26,9 +26,9 @@ class Rule(BaseModel):
     name: str
     description: str
     condition: RuleCondition
-    severity: str = Field(default="warning", enum=["critical", "warning", "info"])
+    severity: str = Field(default="warning")
     enabled: bool = True
-    suggested_actions: List[str] = []
+    suggested_actions: List[str] = Field(default_factory=list)
 
 
 class RuleCreateRequest(BaseModel):
@@ -37,7 +37,7 @@ class RuleCreateRequest(BaseModel):
     description: str
     condition: RuleCondition
     severity: str = "warning"
-    suggested_actions: List[str] = []
+    suggested_actions: List[str] = Field(default_factory=list)
 
 
 @router.get("/", response_model=List[Rule])

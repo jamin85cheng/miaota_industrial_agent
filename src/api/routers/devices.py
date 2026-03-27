@@ -35,13 +35,13 @@ class DeviceTag(BaseModel):
 class DeviceCreateRequest(BaseModel):
     """创建设备请求"""
     name: str = Field(..., min_length=1, max_length=100)
-    type: str = Field(..., regex="^(s7|modbus)$")
-    host: str = Field(..., regex="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
+    type: str = Field(..., pattern=r"^(s7|modbus)$")
+    host: str = Field(..., pattern=r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
     port: int = Field(..., ge=1, le=65535)
     rack: Optional[int] = 0
     slot: Optional[int] = 1
     scan_interval: int = Field(default=10, ge=1, le=3600)
-    tags: Optional[List[DeviceTag]] = []
+    tags: List[DeviceTag] = Field(default_factory=list)
 
 
 class DeviceUpdateRequest(BaseModel):
@@ -78,8 +78,8 @@ class DeviceListResponse(BaseModel):
 
 @router.get("", response_model=DeviceListResponse)
 async def list_devices(
-    type: Optional[str] = Query(None, regex="^(s7|modbus)$"),
-    status: Optional[str] = Query(None, regex="^(online|offline|error)$"),
+    type: Optional[str] = Query(None, pattern=r"^(s7|modbus)$"),
+    status: Optional[str] = Query(None, pattern=r"^(online|offline|error)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     user: UserContext = Depends(require_permissions("device:read")),

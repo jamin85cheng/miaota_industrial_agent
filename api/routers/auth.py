@@ -6,7 +6,7 @@
 """
 
 from datetime import timedelta
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from api.core.security import AuthService, TokenData
